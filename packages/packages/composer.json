@@ -1,0 +1,49 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "froxlor/packages",
+    "type": "library",
+    "description": "The froxlor package management service package.",
+    "keywords": [
+        "froxlor",
+        "package",
+        "management"
+    ],
+    "homepage": "https://www.froxlor.org",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Michael Kaufmann",
+            "email": "d00p@froxlor.org",
+            "role": "Lead Developer"
+        },
+        {
+            "name": "Maurice Preuß",
+            "email": "envoyr@froxlor.org",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "froxlor/core": "*",
+        "froxlor/ui": "*",
+        "illuminate/support": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Froxlor\\Packages\\": "src/",
+            "Froxlor\\Packages\\Database\\Factories\\": "database/factories/",
+            "Froxlor\\Packages\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "extra": {
+        "froxlor": {
+            "type": "package"
+        },
+        "laravel": {
+            "providers": [
+                "Froxlor\\Packages\\Providers\\EventServiceProvider",
+                "Froxlor\\Packages\\Providers\\FroxlorPackageServiceProvider"
+            ]
+        }
+    }
+}

@@ -1,0 +1,54 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "froxlor/domain",
+    "type": "library",
+    "description": "The froxlor domain package.",
+    "keywords": [
+        "froxlor",
+        "management",
+        "panel"
+    ],
+    "homepage": "https://www.froxlor.org",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Michael Kaufmann",
+            "email": "d00p@froxlor.org",
+            "role": "Lead Developer"
+        },
+        {
+            "name": "Maurice Preuß",
+            "email": "envoyr@froxlor.org",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "froxlor/core": "*",
+        "froxlor/ui": "*",
+        "illuminate/support": "^12.0"
+    },
+    "suggest": {
+        "froxlor/dns": "Allows managing of DNS zones for domains",
+        "froxlor/web": "Allows domains to be used for websites / online services",
+        "froxlor/mail": "Allows domains to be used for email addresses / accounts",
+        "froxlor/domain-register-pro": "Allows ordering of domains via registrar"
+    },
+    "autoload": {
+        "psr-4": {
+            "Froxlor\\Domain\\": "src/",
+            "Froxlor\\Domain\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "extra": {
+        "froxlor": {
+            "type": "package"
+        },
+        "laravel": {
+            "providers": [
+                "Froxlor\\Domain\\Providers\\EventServiceProvider",
+                "Froxlor\\Domain\\Providers\\FroxlorDomainServiceProvider"
+            ]
+        }
+    }
+}

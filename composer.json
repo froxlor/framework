@@ -1,0 +1,128 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "froxlor/framework",
+    "description": "The froxlor framework application.",
+    "keywords": [
+        "froxlor",
+        "framework"
+    ],
+    "homepage": "https://www.froxlor.org",
+    "license": "LGPL-2.1-only",
+    "authors": [
+        {
+            "name": "Michael Kaufmann",
+            "email": "d00p@froxlor.org",
+            "role": "Lead Developer"
+        },
+        {
+            "name": "Maurice Preuß",
+            "email": "envoyr@froxlor.org",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "email": "team@froxlor.org",
+        "issues": "https://github.com/froxlor/framework/issues",
+        "forum": "https://forum.froxlor.org/",
+        "source": "https://github.com/froxlor/framework",
+        "docs": "https://docs.froxlor.org/",
+        "chat": "https://discord.froxlor.org/"
+    },
+    "funding": [
+        {
+            "type": "github",
+            "url": "https://github.com/sponsors/d00p"
+        }
+    ],
+    "require": {
+        "php": "^8.4",
+        "gehrisandro/tailwind-merge-laravel": "^v1.3",
+        "illuminate/support": "^12.0",
+        "laravel/horizon": "^5.35",
+        "laravel/octane": "^2.12",
+        "laravel/sanctum": "^4.0",
+        "livewire/livewire": "^v4.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Froxlor\\Auth\\": "packages/auth/src",
+            "Froxlor\\Core\\": "packages/core/src",
+            "Froxlor\\Core\\Database\\Factories\\": "packages/core/database/factories/",
+            "Froxlor\\Core\\Database\\Seeders\\": "packages/core/database/seeders/",
+            "Froxlor\\Database\\": "packages/database/src",
+            "Froxlor\\Developer\\": "packages/developer/src",
+            "Froxlor\\Domain\\": "packages/domain/src",
+            "Froxlor\\Domain\\Database\\Seeders\\": "packages/domain/database/seeders/",
+            "Froxlor\\Ftp\\": "packages/ftp/src",
+            "Froxlor\\Mail\\": "packages/mail/src",
+            "Froxlor\\Mail\\Database\\Seeders\\": "packages/mail/database/seeders/",
+            "Froxlor\\Packages\\": "packages/packages/src",
+            "Froxlor\\Packages\\Database\\Factories\\": "packages/packages/database/factories/",
+            "Froxlor\\Packages\\Database\\Seeders\\": "packages/packages/database/seeders/",
+            "Froxlor\\Web\\": "packages/web/src",
+            "Froxlor\\Web\\Database\\Seeders\\": "packages/web/database/seeders/",
+            "Froxlor\\UI\\": "packages/ui/src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "cd ../bundle && npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev --prefix ../framework/packages/ui\" --names=server,queue,logs,vite --kill-others"
+        ],
+        "dev:assets": [
+            "rm -f ../bundle/public/vendor/froxlor/ui && ln -s ../../../../framework/packages/ui/dist ../bundle/public/vendor/froxlor/ui && echo 'Linked assets for development.'"
+        ]
+    },
+    "replace": {
+        "froxlor/auth": "self.version",
+        "froxlor/core": "self.version",
+        "froxlor/database": "self.version",
+        "froxlor/developer": "self.version",
+        "froxlor/domain": "self.version",
+        "froxlor/ftp": "self.version",
+        "froxlor/mail": "self.version",
+        "froxlor/package": "self.version",
+        "froxlor/ui": "self.version"
+    },
+    "extra": {
+        "froxlor": {
+            "type": "package"
+        },
+        "laravel": {
+            "providers": [
+                "Froxlor\\Auth\\Providers\\FroxlorAuthServiceProvider",
+                "Froxlor\\Core\\Providers\\EventServiceProvider",
+                "Froxlor\\Core\\Providers\\FroxlorCoreServiceProvider",
+                "Froxlor\\Core\\Providers\\HorizonServiceProvider",
+                "Froxlor\\Database\\Providers\\FroxlorDatabaseServiceProvider",
+                "Froxlor\\Developer\\Providers\\FroxlorDeveloperServiceProvider",
+                "Froxlor\\Domain\\Providers\\EventServiceProvider",
+                "Froxlor\\Domain\\Providers\\FroxlorDomainServiceProvider",
+                "Froxlor\\Ftp\\Providers\\FroxlorFtpServiceProvider",
+                "Froxlor\\Mail\\Providers\\EventServiceProvider",
+                "Froxlor\\Mail\\Providers\\FroxlorMailServiceProvider",
+                "Froxlor\\Packages\\Providers\\EventServiceProvider",
+                "Froxlor\\Packages\\Providers\\FroxlorPackageServiceProvider",
+                "Froxlor\\Web\\Providers\\EventServiceProvider",
+                "Froxlor\\Web\\Providers\\FroxlorWebServiceProvider",
+                "Froxlor\\UI\\Providers\\FroxlorUIServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

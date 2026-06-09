@@ -1,0 +1,70 @@
+<?php
+
+namespace Froxlor\Core\Database\Seeders\Testing;
+
+use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\Plan;
+use Froxlor\Core\Models\Role;
+use Froxlor\Core\Models\User;
+use Illuminate\Database\Seeder;
+
+class TenantAndEnvironmentsTableSeeder extends Seeder
+{
+
+    /**
+     * Run the database seeds.
+     *
+     * @return void
+     */
+    public function run(): void
+    {
+        $node = Node::query()->first();
+        $user = User::query()->where('email', config('dev.email'))->first(); // user #1
+        $env1 = $user->environments()->create([
+            'name' => 'Development Environment',
+            'tenant_id' => $user->tenants[0]->id,
+            'plan_id' => Plan::query()->where('name', 'Unlimited')->first()->id // Unlimited plan
+        ], [
+            'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id // Super-Admin role for the users on this environment
+        ]);
+
+        $this->attachEnvToNode($env1, $node);
+
+        $user2 = User::query()->where('email', 'dev2@froxlor.org')->first(); // user #2
+        $env2 = $user2->environments()->create([
+            'name' => 'Kunden Environment',
+            'tenant_id' => $user2->tenants[0]->id,
+        ], [
+            'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id // Super-Admin role for the users on this environment
+        ]);
+        $this->attachEnvToNode($env2, $node);
+
+        $user3 = User::query()->where('email', 'dev3@froxlor.org')->first(); // user #3
+        $env3 = $user3->environments()->create([
+            'name' => 'Reseller->User Environment',
+            'tenant_id' => $user3->tenants[0]->id,
+            'plan_id' => Plan::query()->where('name', 'Plans and roles')->first()->id // "Plans and roles" plan
+        ], [
+            'role_id' => Role::query()->where('name', 'Reseller')->first()->id // Reseller role for the users on this environment
+        ]);
+        $this->attachEnvToNode($env3, $node);
+    }
+
+    private function attachEnvToNode(Environment $env, Node $node): void
+    {
+        $unixName = $node->latestUnixName;
+        $guid = $node->latestGuid;
+
+        // connect environment with node (must be mode=main)
+        $node->environments()->attach($env, [
+            'unix_name' => $unixName,
+            'guid' => $guid,
+            'mode' => 'main'
+        ]);
+
+        // increment last_username_number and last_guid_number because no observers here
+        $node->setSetting('node.last_username_number', ($node->getSetting('node.last_username_number') + 1));
+        $node->setSetting('node.last_guid_number', $guid);
+    }
+}

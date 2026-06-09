@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'appearance' => 'Appearance',
+    'actions' => 'Actions',
+    'components' => 'Components',
+    'submit' => 'Submit',
+    'appearance_settings' => 'Appearance Settings',
+    'appearance_settings_description' => 'Manage the appearance settings of your froxlor installation',
+    'appearance_settings_section_description' => 'Configure the look and feel of your froxlor installation, this will apply to all users',
+    'theme' => 'Theme',
+    'light' => 'Light',
+    'dark' => 'Dark',
+    'system_default' => 'System default',
+    'items_selected' => 'selected',
+    'confirm' => 'Confirm',
+    'cancel' => 'Cancel',
+    'confirm_action_title' => 'Confirm action',
+    'confirm_action_description' => 'Are you sure you want to continue?',
+    'confirm_destructive_action_title' => 'Confirm destructive action',
+    'confirm_destructive_action_description' => 'This action cannot be undone.',
+    'confirm_bulk_action_title' => 'Confirm action',
+    'confirm_bulk_action_description' => 'This action will be executed for the selected entries.',
+    'confirm_destructive_bulk_action_title' => 'Confirm destructive action',
+    'confirm_destructive_bulk_action_description' => 'This action will be executed for the selected entries and cannot be undone.',
+];

@@ -1,0 +1,45 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "froxlor/auth",
+    "type": "library",
+    "description": "The froxlor auth package.",
+    "keywords": [
+        "froxlor",
+        "auth"
+    ],
+    "homepage": "https://www.froxlor.org",
+    "license": "proprietary",
+    "authors": [
+        {
+            "name": "Michael Kaufmann",
+            "email": "d00p@froxlor.org",
+            "role": "Lead Developer"
+        },
+        {
+            "name": "Maurice Preuß",
+            "email": "envoyr@froxlor.org",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "froxlor/core": "*",
+        "froxlor/ui": "*",
+        "illuminate/support": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Froxlor\\Auth\\": "src/"
+        }
+    },
+    "extra": {
+        "froxlor": {
+            "type": "package"
+        },
+        "laravel": {
+            "providers": [
+                "Froxlor\\Auth\\Providers\\FroxlorAuthServiceProvider"
+            ]
+        }
+    }
+}
