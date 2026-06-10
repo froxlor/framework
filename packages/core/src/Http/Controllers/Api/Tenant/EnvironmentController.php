@@ -10,20 +10,18 @@ use Froxlor\Core\Jobs\Environment\CreateEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
-use Froxlor\Core\Services\Traits\TenantAccessPermission;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class EnvironmentController extends Controller
 {
-    use TenantAccessPermission;
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request, Tenant $tenant)
     {
-        //Gate::authorize('tenantViewAny', [Environment::class, $tenant]);
+        Gate::authorize('tenantViewAny', [Environment::class, $tenant]);
 
         return Response::jsonResourceCollection($tenant->environments());
     }
@@ -33,6 +31,8 @@ class EnvironmentController extends Controller
      */
     public function store(StoreEnvironmentRequest $request, Tenant $tenant)
     {
+        Gate::authorize('tenantCreate', [Environment::class, $tenant]);
+
         // get validated data only for ourselves
         $envData = $request->validatedResource();
         // fixed values
@@ -60,7 +60,7 @@ class EnvironmentController extends Controller
      */
     public function show(Request $request, Tenant $tenant, Environment $environment)
     {
-        // Gate::authorize('tenantView', [$environment, $tenant]);
+        Gate::authorize('tenantView', [$environment, $tenant]);
 
         return Response::jsonResource($environment->load(['plan', 'users'])->append('env_usage_list'));
     }
@@ -70,6 +70,8 @@ class EnvironmentController extends Controller
      */
     public function update(UpdateEnvironmentRequest $request, Tenant $tenant, Environment $environment)
     {
+        Gate::authorize('tenantUpdate', [$environment, $tenant]);
+
         $envData = $request->validated();
         $nodeId = $this->getNonModelRequestData('node_id', $envData);
 
@@ -88,6 +90,8 @@ class EnvironmentController extends Controller
      */
     public function destroy(Request $request, Tenant $tenant, Environment $environment)
     {
+        Gate::authorize('tenantDelete', [$environment, $tenant]);
+
         $environment->delete();
 
         return response()->noContent();
