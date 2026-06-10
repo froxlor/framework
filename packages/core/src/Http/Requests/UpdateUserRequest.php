@@ -27,11 +27,11 @@ class UpdateUserRequest extends FormRequest
             'company_name' => ['sometimes', 'nullable'],
             'email' => ['sometimes', 'required', 'email'],
             'password' => ['sometimes', 'nullable', 'min:8'],
-            'tenant_id' => ['sometimes', 'nullable', 'string', 'exists:tenants,id', 'required_with:role_id,plan_id'],
-            'role_id' => ['sometimes', 'string', 'exists:roles,id', 'required_with:tenant_id'],
-            'plan_id' => ['sometimes', 'nullable', 'string', 'exists:plans,id'],
-            'role' => ['sometimes', 'string', 'exists:roles,id', 'required_with:tenant_id'],
-            'plan' => ['sometimes', 'nullable', 'string', 'exists:plans,id'],
+            'tenant_id' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:tenants,id', 'required_with:role_id,plan_id'],
+            'role_id' => ['sometimes', 'string', 'ulid', 'exists:roles,id', 'required_with:tenant_id'],
+            'plan_id' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:plans,id'],
+            'role' => ['sometimes', 'string', 'ulid', 'exists:roles,id', 'required_with:tenant_id'],
+            'plan' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:plans,id'],
         ];
     }
 

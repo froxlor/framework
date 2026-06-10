@@ -23,8 +23,8 @@ class StoreTenantRequest extends FroxlorFormRequest
     public function rules(): array
     {
         return [
-            'parent_tenant_id' => 'required|exists:tenants,id',
-            'plan_id' => 'required|exists:plans,id',
+            'parent_tenant_id' => 'required|string|ulid|exists:tenants,id',
+            'plan_id' => 'required|string|ulid|exists:plans,id',
             'name' => 'required|string',
             'description' => 'nullable|string',
         ];

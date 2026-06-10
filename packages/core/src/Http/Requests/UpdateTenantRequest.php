@@ -22,8 +22,8 @@ class UpdateTenantRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'parent_tenant_id' => 'sometimes|nullable|exists:tenants,id',
-            'plan_id' => 'sometimes|exists:plans,id',
+            'parent_tenant_id' => 'sometimes|nullable|string|ulid|exists:tenants,id',
+            'plan_id' => 'sometimes|string|ulid|exists:plans,id',
             'name' => 'sometimes|string',
             'description' => 'sometimes|nullable|string',
         ];

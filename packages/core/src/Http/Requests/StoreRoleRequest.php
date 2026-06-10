@@ -27,7 +27,7 @@ class StoreRoleRequest extends FroxlorFormRequest
             'name' => 'required|string',
             'type' => ['string', Rule::in(['tenant', 'environment'])],
             'description' => 'string|nullable',
-            'tenant_id' => 'nullable|exists:tenants,id',
+            'tenant_id' => 'nullable|string|ulid|exists:tenants,id',
         ];
     }
 
