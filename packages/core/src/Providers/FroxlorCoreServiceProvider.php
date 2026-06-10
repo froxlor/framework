@@ -13,6 +13,7 @@ use Froxlor\UI\Pushable\SidebarTenantLink;
 use Froxlor\UI\Support\UI;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use URL;
@@ -23,6 +24,8 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function boot(): void
     {
+        AboutCommand::add('froxlor', fn () => ['core' => '3.0.0']);
+
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
@@ -42,11 +45,10 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
         // Cli commands
         $this->loadCommandsFrom(__DIR__ . '/../Console');
 
-        Gate::policy(Tenant::class, TenantPolicy::class);
-
         // User Interface
         $this->extendUserInterface();
 
+        // Relations
         Relation::morphMap([
             'environments' => Models\Environment::class,
             'nodes' => Models\Node::class,
@@ -57,6 +59,9 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
             'tenants' => Models\Tenant::class,
             'users' => Models\User::class,
         ]);
+
+        // Gates
+        Gate::policy(Tenant::class, TenantPolicy::class);
 
         // Adapters
         Models\Node::registerAdapter(Local::class);
