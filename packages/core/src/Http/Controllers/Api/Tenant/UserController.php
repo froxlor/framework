@@ -10,7 +10,6 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
-use Froxlor\Core\Services\Traits\TenantAccessPermission;
 use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -18,14 +17,12 @@ use Illuminate\Support\Facades\Gate;
 
 class UserController extends Controller
 {
-    use TenantAccessPermission;
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request, Tenant $tenant)
     {
-        //Gate::authorize('tenantViewAny', [User::class, $tenant]);
+        Gate::authorize('tenantViewAny', [User::class, $tenant]);
 
         return Response::jsonResourceCollection($tenant->users());
     }
@@ -35,7 +32,7 @@ class UserController extends Controller
      */
     public function store(StoreTenantUserRequest $request, Tenant $tenant)
     {
-//        Gate::authorize('tenantCreate', [User::class, $tenant]);
+        Gate::authorize('tenantCreate', [User::class, $tenant]);
 
         if ($tenant->userHasResourceAvailable($request->user(), User::getResourceKey())) {
 
@@ -65,7 +62,7 @@ class UserController extends Controller
      */
     public function show(Request $request, Tenant $tenant, User $user)
     {
-        //Gate::authorize('tenantView', [$user, $tenant]);
+        Gate::authorize('tenantView', [$user, $tenant]);
 
         $user->load(['roles', 'environments', 'tenants']);
         $pivot = $user->tenants->firstWhere('id', $tenant->id)?->pivot;
@@ -91,6 +88,8 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, Tenant $tenant, User $user)
     {
+        Gate::authorize('tenantUpdate', [$user, $tenant]);
+
         $userData = $request->validated();
         unset($userData['tenant_id']);
         $roleId = $this->getNonModelRequestData('role_id', $userData)

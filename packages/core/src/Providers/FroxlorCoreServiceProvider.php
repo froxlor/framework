@@ -8,11 +8,13 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Models\User;
 use Froxlor\Core\Policies\AuditLogPolicy;
 use Froxlor\Core\Policies\NodePolicy;
 use Froxlor\Core\Policies\PlanPolicy;
 use Froxlor\Core\Policies\RolePolicy;
 use Froxlor\Core\Policies\TenantPolicy;
+use Froxlor\Core\Policies\UserPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\UI\Pushable\SidebarLink;
@@ -73,6 +75,7 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
         Gate::policy(Plan::class, PlanPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
 
         // Adapters
         Models\Node::registerAdapter(Local::class);

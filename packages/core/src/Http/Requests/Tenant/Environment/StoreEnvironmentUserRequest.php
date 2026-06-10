@@ -20,10 +20,10 @@ class StoreEnvironmentUserRequest extends FroxlorFormRequest
             'company_name' => 'nullable',
             'email' => 'required|string|unique:users,email',
             'password' => 'required|string',
-            'tenant_role' => 'required|integer|exists:roles,id',
-            'tenant_plan' => 'nullable|integer|exists:plans,id',
-            'environment_role' => 'required|integer|exists:roles,id',
-            'environment_plan' => 'nullable|integer|exists:plans,id',
+            'tenant_role' => 'required|string|exists:roles,id',
+            'tenant_plan' => 'nullable|string|exists:plans,id',
+            'environment_role' => 'required|string|exists:roles,id',
+            'environment_plan' => 'nullable|string|exists:plans,id',
         ];
     }
 
