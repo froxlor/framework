@@ -8,6 +8,7 @@ use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class AuditLogController extends Controller
 {
@@ -16,7 +17,7 @@ class AuditLogController extends Controller
      */
     public function index(Request $request, Tenant $tenant, Environment $environment)
     {
-        //Gate::authorize('tenantEnvViewAny', [AuditLog::class, $tenant, $environment]);
+        Gate::authorize('tenantEnvViewAny', [AuditLog::class, $tenant, $environment]);
 
         $this->checkFeatureEnabled('auditlog.enabled', 'auditlog not enabled');
 

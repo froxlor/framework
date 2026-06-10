@@ -47,4 +47,16 @@ class AuditLog extends Model
     {
         return $this->belongsTo(Environment::class);
     }
+
+    public static function getAllPermissions(): array
+    {
+        return [
+            ['key' => 'audit-log.*', 'name' => 'Manage audit log'],
+            ['key' => 'audit-log.index', 'name' => 'View audit log'],
+            ['key' => 'tenants.audit-log.*', 'name' => 'Manage tenant audit log'],
+            ['key' => 'tenants.audit-log.index', 'name' => 'View tenant audit log'],
+            ['key' => 'tenants.environments.audit-log.*', 'name' => 'Manage environment audit log'],
+            ['key' => 'tenants.environments.audit-log.index', 'name' => 'View environment audit log'],
+        ];
+    }
 }
