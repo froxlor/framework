@@ -9,6 +9,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Policies\AuditLogPolicy;
+use Froxlor\Core\Policies\NodePolicy;
 use Froxlor\Core\Policies\PlanPolicy;
 use Froxlor\Core\Policies\RolePolicy;
 use Froxlor\Core\Policies\TenantPolicy;
@@ -68,6 +69,7 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         // Gates
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Gate::policy(Node::class, NodePolicy::class);
         Gate::policy(Plan::class, PlanPolicy::class);
         Gate::policy(Role::class, RolePolicy::class);
         Gate::policy(Tenant::class, TenantPolicy::class);

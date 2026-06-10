@@ -3,14 +3,13 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
-use Froxlor\Core\Events\Api\ResourceValidating;
-use Froxlor\Core\Events\Node\NodeCreated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
 use Froxlor\Core\Jobs\Node\ExploreNode;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Support\Response;
+use Illuminate\Support\Facades\Gate;
 
 class NodeController extends Controller
 {
@@ -19,7 +18,7 @@ class NodeController extends Controller
      */
     public function index()
     {
-        //Gate::authorize('viewAny', Node::class);
+        Gate::authorize('viewAny', Node::class);
 
         return Response::jsonResourceCollection(Node::query()->orderBy('name'));
     }
@@ -29,7 +28,7 @@ class NodeController extends Controller
      */
     public function store(StoreNodeRequest $request)
     {
-        //Gate::authorize('create', Node::class);
+        Gate::authorize('create', Node::class);
 
         // get validated data only for ourselves
         $nodeData = $request->validatedResource();
@@ -51,7 +50,7 @@ class NodeController extends Controller
      */
     public function show(Node $node)
     {
-        //Gate::authorize('view', Node::class);
+        Gate::authorize('view', $node);
 
         return Response::jsonResource($node->load(['nodeInterfaces', 'environments.tenant']));
     }
@@ -61,7 +60,7 @@ class NodeController extends Controller
      */
     public function update(UpdateNodeRequest $request, Node $node)
     {
-        //Gate::authorize('update', Node::class);
+        Gate::authorize('update', $node);
 
         $node->update($request->validated());
 
@@ -73,7 +72,7 @@ class NodeController extends Controller
      */
     public function destroy(Node $node)
     {
-        //Gate::authorize('delete', Node::class);
+        Gate::authorize('delete', $node);
 
         $node->delete();
 
