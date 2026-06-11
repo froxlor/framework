@@ -4,7 +4,7 @@ namespace Froxlor\Core\Console\Commands;
 
 use Froxlor\Core\Events\System\FroxlorUpdateFound;
 use Froxlor\Core\Services\Support\VersionCheck;
-use Froxlor\Core\Support\Setting;
+use Froxlor\Core\Support\FroxlorVersion;
 use Illuminate\Console\Command;
 
 class CheckVersion extends Command
@@ -28,7 +28,7 @@ class CheckVersion extends Command
      */
     public function handle()
     {
-        $this->output->info(trans('Checking for froxlor updates. Current version is :version', ['version' => Setting::get('general.version')]));
+        $this->output->info(trans('Checking for froxlor updates. Current version is :version', ['version' => FroxlorVersion::release()]));
         $result = VersionCheck::checkVersion();
         if ($result['code'] == 1) {
             event(new FroxlorUpdateFound($result));

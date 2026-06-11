@@ -7,12 +7,14 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Policies\TenantPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
 use Froxlor\UI\Support\UI;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use URL;
@@ -23,6 +25,11 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function boot(): void
     {
+        AboutCommand::add('froxlor', fn() => [
+            'release' => FroxlorVersion::release(),
+            'core' => '3.0.0'
+        ]);
+
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 

@@ -3,6 +3,7 @@
 namespace Froxlor\Packages\Services;
 
 use Exception;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Packages\Models\Repository;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -198,7 +199,7 @@ class PackageService
 
             $options = [
                 'headers' => [
-                    'User-Agent' => 'froxlor/3.0',
+                    'User-Agent' => FroxlorVersion::userAgent(),
                 ],
             ];
 
