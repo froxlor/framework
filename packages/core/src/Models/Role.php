@@ -75,6 +75,9 @@ class Role extends Model
             ['key' => $basePermKey . '.permissions.index', 'name' => 'View permissions in ' . $basePermKey],
             ['key' => $basePermKey . '.permissions.store', 'name' => 'Add permissions to ' . $basePermKey],
             ['key' => $basePermKey . '.permissions.destroy', 'name' => 'Delete permissions in ' . $basePermKey],
+            // role-users permissions for this resource
+            ['key' => $basePermKey . '.users.*', 'name' => 'Manage users in ' . $basePermKey],
+            ['key' => $basePermKey . '.users.index', 'name' => 'View users in ' . $basePermKey],
             // tenant based roles
             ['key' => 'tenants.' . $basePermKey . '.*', 'name' => 'Manage tenant ' . $basePermKey],
             ['key' => 'tenants.' . $basePermKey . '.index', 'name' => 'View tenant ' . $basePermKey],

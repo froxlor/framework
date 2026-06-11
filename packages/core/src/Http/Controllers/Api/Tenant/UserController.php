@@ -14,6 +14,7 @@ use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
@@ -42,6 +43,10 @@ class UserController extends Controller
                 ?? $this->getNonModelRequestData('role', $userData);
             $plan = $this->getNonModelRequestData('plan_id', $userData)
                 ?? $this->getNonModelRequestData('plan', $userData);
+
+            $this->ensureRoleCanBeAssignedToTenant($role, $tenant);
+            $this->ensurePlanCanBeAssignedToTenant($plan, $tenant);
+
             // create resource
             $user = User::query()->create($userData);
             $tenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
@@ -101,6 +106,9 @@ class UserController extends Controller
         $planId = $this->getNonModelRequestData('plan_id', $userData)
             ?? $this->getNonModelRequestData('plan', $userData);
 
+        $this->ensureRoleCanBeAssignedToTenant($roleId, $tenant);
+        $this->ensurePlanCanBeAssignedToTenant($planId, $tenant);
+
         $user->update($userData);
 
         $pivotData = [];
@@ -129,5 +137,35 @@ class UserController extends Controller
         $tenant->users()->detach($user);
 
         return response()->json(['message' => 'User removed from environment successfully'], 200);
+    }
+
+    private function ensureRoleCanBeAssignedToTenant(?string $roleId, Tenant $tenant): void
+    {
+        if (empty($roleId)) {
+            return;
+        }
+
+        $role = Role::query()->findOrFail($roleId);
+
+        if ($role->tenant_id !== null && $role->tenant_id !== $tenant->id) {
+            throw ValidationException::withMessages([
+                'role_id' => 'The selected role is not available for this tenant.',
+            ]);
+        }
+    }
+
+    private function ensurePlanCanBeAssignedToTenant(?string $planId, Tenant $tenant): void
+    {
+        if (empty($planId)) {
+            return;
+        }
+
+        $plan = Plan::query()->findOrFail($planId);
+
+        if ($plan->tenant_id !== null && $plan->tenant_id !== $tenant->id) {
+            throw ValidationException::withMessages([
+                'plan_id' => 'The selected plan is not available for this tenant.',
+            ]);
+        }
     }
 }

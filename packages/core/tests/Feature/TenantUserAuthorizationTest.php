@@ -45,6 +45,56 @@ class TenantUserAuthorizationTest extends TestCase
             ->assertOk();
     }
 
+    public function test_tenant_admin_can_assign_tenant_owned_role_to_tenant_user(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $role = Role::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Tenant User Assignment Role ' . str()->ulid(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/users', [
+                'first_name' => 'Tenant',
+                'last_name' => 'Role User',
+                'email' => 'tenant-role-user-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'role_id' => $role->id,
+            ])
+            ->assertCreated();
+    }
+
+    public function test_tenant_admin_cannot_assign_role_from_another_tenant(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $otherTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $targetUser = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $role = Role::query()->create([
+            'tenant_id' => $otherTenant->id,
+            'name' => 'Foreign Tenant User Assignment Role ' . str()->ulid(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/users', [
+                'first_name' => 'Forbidden',
+                'last_name' => 'Foreign Role User',
+                'email' => 'forbidden-foreign-role-user-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'role_id' => $role->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role_id']);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id . '/users/' . $targetUser->id, [
+                'role_id' => $role->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role_id']);
+    }
+
     public function test_unassigned_user_cannot_manage_tenant_user(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();

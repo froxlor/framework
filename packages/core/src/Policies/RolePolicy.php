@@ -48,6 +48,12 @@ class RolePolicy
         return $user->hasPermission('roles.destroy');
     }
 
+    public function usersViewAny(User $user, Role $role): bool
+    {
+        return $role->tenant_id === null
+            && $user->hasPermission('roles.users.index');
+    }
+
     public function tenantViewAny(User $user, Tenant $tenant): bool
     {
         return $this->hasScopedPermission($user, 'tenants.roles.index', $tenant);
