@@ -14,7 +14,7 @@ class VersionCheck
     public static function checkVersion(): array
     {
         $version = FroxlorVersion::release();
-        $channel = '/stable';
+        $channel = '/testing';
 
         try {
             $latestversion = Http::withHeader('User-Agent', FroxlorVersion::userAgent())->get(self::UPDATE_URI . $version . $channel);
@@ -40,7 +40,10 @@ class VersionCheck
                         'msg' => $version_result['version']
                     ];
                 }
-                return $version_result;
+                return [
+                    'code' => 0,
+                    'msg' => $version_result['info']
+                ];
             }
         }
         return [
