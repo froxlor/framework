@@ -2,17 +2,23 @@
 
 namespace Froxlor\Packages\Providers;
 
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Packages\Services\PackageService;
 use Froxlor\UI\Pushable\NavbarLink;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Support\UI;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 
 class FroxlorPackageServiceProvider extends PackageServiceProvider
 {
     public function boot(): void
     {
+        AboutCommand::add('froxlor packages', fn() => [
+            'packages' => FroxlorVersion::installedApplicationVersion('froxlor/packages', FroxlorVersion::release())
+        ]);
+
         // Config
         $this->publishes([
             __DIR__ . '/../../config/packages.php' => config_path('packages.php'),

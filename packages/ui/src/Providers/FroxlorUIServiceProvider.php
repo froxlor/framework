@@ -2,10 +2,12 @@
 
 namespace Froxlor\UI\Providers;
 
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\UI\Pushable\SettingLink;
 use Froxlor\UI\Pushable\UserDropdownLink;
 use Froxlor\UI\Support\UI;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Livewire\Livewire;
 
@@ -13,6 +15,10 @@ class FroxlorUIServiceProvider extends PackageServiceProvider
 {
     public function boot(): void
     {
+        AboutCommand::add('froxlor packages', fn() => [
+            'ui' => FroxlorVersion::installedApplicationVersion('froxlor/ui', FroxlorVersion::release())
+        ]);
+
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 

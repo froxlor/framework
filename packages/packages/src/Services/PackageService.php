@@ -3,6 +3,7 @@
 namespace Froxlor\Packages\Services;
 
 use Exception;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Packages\Models\Repository;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
@@ -192,13 +193,13 @@ class PackageService
         return Cache::remember('packages', 300, function () {
             $client = new Client([
                 'base_uri' => config('packages.discovery'),
-                'timeout'  => 10.0,
-                'verify'   => true,
+                'timeout' => 10.0,
+                'verify' => true,
             ]);
 
             $options = [
                 'headers' => [
-                    'User-Agent' => 'froxlor/3.0',
+                    'User-Agent' => FroxlorVersion::userAgent(),
                 ],
             ];
 
@@ -344,7 +345,9 @@ class PackageService
                     ['name' => $repoName],
                     [
                         'type' => 'path',
-                        'url' => sprintf('../%s', $repoName),
+                        'url' => config('packages.directory', '')
+                                |> (fn($x) => rtrim($x, '/'))
+                                |> (fn($x) => sprintf('%s/%s', $x, $repoName)),
                         'enabled' => true,
                     ]
                 );

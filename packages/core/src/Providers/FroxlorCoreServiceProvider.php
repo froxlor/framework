@@ -18,6 +18,7 @@ use Froxlor\Core\Policies\RolePolicy;
 use Froxlor\Core\Policies\TenantPolicy;
 use Froxlor\Core\Policies\UserPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
@@ -35,7 +36,13 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function boot(): void
     {
-        AboutCommand::add('froxlor', fn () => ['core' => '3.0.0']);
+        AboutCommand::add('froxlor', fn() => [
+            'version' => FroxlorVersion::release(),
+        ]);
+
+        AboutCommand::add('froxlor packages', fn() => [
+            'core' => FroxlorVersion::installedApplicationVersion('froxlor/core', FroxlorVersion::release())
+        ]);
 
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');

@@ -87,7 +87,8 @@
         "froxlor/ftp": "self.version",
         "froxlor/mail": "self.version",
         "froxlor/package": "self.version",
-        "froxlor/ui": "self.version"
+        "froxlor/ui": "self.version",
+        "froxlor/web": "self.version"
     },
     "extra": {
         "froxlor": {
