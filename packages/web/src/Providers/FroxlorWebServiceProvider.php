@@ -5,6 +5,7 @@ namespace Froxlor\Web\Providers;
 use Froxlor\Core\Models\NodeInterface;
 use Froxlor\Core\Services\Node\Provisioning\ScriptDefinition;
 use Froxlor\Core\Services\Node\Provisioning\ScriptRegistry;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Domain\Models\Domain;
 use Froxlor\Web\Models;
@@ -15,7 +16,9 @@ class FroxlorWebServiceProvider extends PackageServiceProvider
 {
     public function boot(): void
     {
-        AboutCommand::add('froxlor', fn() => ['web' => '3.0.0']);
+        AboutCommand::add('froxlor packages', fn() => [
+            'web' => FroxlorVersion::installedApplicationVersion('froxlor/web', FroxlorVersion::release())
+        ]);
 
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
@@ -94,8 +97,8 @@ class FroxlorWebServiceProvider extends PackageServiceProvider
             reloadCommands: fn($domainVhost) => [
                 'nginx -t',
                 'ln -sf ' . escapeshellarg('/etc/nginx/sites-available/' . $domainVhost->domain->domain . '.conf')
-                    . ' '
-                    . escapeshellarg('/etc/nginx/sites-enabled/' . $domainVhost->domain->domain . '.conf'),
+                . ' '
+                . escapeshellarg('/etc/nginx/sites-enabled/' . $domainVhost->domain->domain . '.conf'),
                 'systemctl reload nginx',
             ],
             package: 'web',
@@ -130,8 +133,8 @@ class FroxlorWebServiceProvider extends PackageServiceProvider
             reloadCommands: fn($domainVhost) => [
                 'nginx -t',
                 'ln -sf ' . escapeshellarg('/etc/nginx/sites-available/' . $domainVhost->domain->domain . '.conf')
-                    . ' '
-                    . escapeshellarg('/etc/nginx/sites-enabled/' . $domainVhost->domain->domain . '.conf'),
+                . ' '
+                . escapeshellarg('/etc/nginx/sites-enabled/' . $domainVhost->domain->domain . '.conf'),
                 'systemctl reload nginx',
             ],
             package: 'web',

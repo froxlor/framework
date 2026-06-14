@@ -26,8 +26,11 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
     public function boot(): void
     {
         AboutCommand::add('froxlor', fn() => [
-            'release' => FroxlorVersion::release(),
-            'core' => '3.0.0'
+            'version' => FroxlorVersion::release(),
+        ]);
+
+        AboutCommand::add('froxlor packages', fn() => [
+            'core' => FroxlorVersion::installedApplicationVersion('froxlor/core', FroxlorVersion::release())
         ]);
 
         // Migrations

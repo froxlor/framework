@@ -17,19 +17,18 @@ final class FroxlorVersion
     /**
      * Return the configured froxlor product release version.
      *
-     * Release builds should provide this value through `FROXLOR_RELEASE_VERSION`.
-     * Development installs fall back to Composer metadata for `froxlor/froxlor`
-     * and finally to a valid development version string.
+     * Release builds should provide this value through composer
+     * based in the main packages froxlor/framework.
      */
     public static function release(): string
     {
-        return (string) config('froxlor.release_version', self::installedApplicationVersion());
+        return (string)self::installedApplicationVersion();
     }
 
     /**
      * Return the major/minor release series for compatibility checks.
      *
-     * For a release like `3.0.7`, `3.0-rc1`, or `v3.0-dev1`, this returns
+     * For a release like `3.0.7`, `3.0.0-rc.1`, or `v3.0.0-dev.1`, this returns
      * `3.0`. If the version does not start with a numeric major/minor pair,
      * the normalized release value is returned unchanged.
      */
@@ -62,11 +61,15 @@ final class FroxlorVersion
      * workspaces. The hard fallback must stay compatible with froxlor's version
      * validation rules.
      */
-    private static function installedApplicationVersion(): string
+    public static function installedApplicationVersion(string $package = 'froxlor/framework', string $fallback = 'unknown'): string
     {
-        return InstalledVersions::getPrettyVersion('froxlor/froxlor')
-            ?? InstalledVersions::getVersion('froxlor/froxlor')
-            ?? '3.0-dev1';
+        try {
+            return InstalledVersions::getPrettyVersion($package)
+                ?? InstalledVersions::getVersion($package)
+                ?? $fallback;
+        } catch (\Throwable $exception) {
+            return $fallback;
+        }
     }
 
     /**
