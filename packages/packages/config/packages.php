@@ -6,4 +6,5 @@ return [
 
     'token' => env('FROXLOR_PACKAGES_TOKEN', null),
 
+    'directory' => env('FROXLOR_PACKAGES_DIRECTORY', '/opt/froxlor/packages'),
 ];
