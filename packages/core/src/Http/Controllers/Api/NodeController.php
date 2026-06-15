@@ -10,6 +10,7 @@ use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
 use Froxlor\Core\Jobs\Node\ExploreNode;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
 
 class NodeController extends Controller
@@ -33,8 +34,22 @@ class NodeController extends Controller
 
         // get validated data only for ourselves
         $nodeData = $request->validatedResource();
+        $inheritable = (bool)($nodeData['inheritable'] ?? false);
+        unset($nodeData['inheritable']);
+
+        $tenant = null;
+        if (!empty($nodeData['tenant_id'])) {
+            $tenant = Tenant::query()->findOrFail($nodeData['tenant_id']);
+            Gate::authorize('view', $tenant);
+        }
+
         // create resource
         $node = Node::query()->create($nodeData);
+        if ($tenant !== null) {
+            $node->tenants()->syncWithoutDetaching([
+                $tenant->id => ['inheritable' => $inheritable],
+            ]);
+        }
         // build up validated data for others
         $eventData = $request->validatedEvent();
         // throw event that resource was created and append validated data

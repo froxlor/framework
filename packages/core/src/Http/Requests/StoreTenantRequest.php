@@ -27,6 +27,9 @@ class StoreTenantRequest extends FroxlorFormRequest
             'plan_id' => 'required|exists:plans,id',
             'name' => 'required|string',
             'description' => 'nullable|string',
+            'nodes' => 'nullable|array',
+            'nodes.*.id' => 'required_with:nodes|string|ulid|exists:nodes,id',
+            'nodes.*.inheritable' => 'nullable|boolean',
         ];
     }
 

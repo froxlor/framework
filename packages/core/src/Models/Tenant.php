@@ -51,6 +51,18 @@ class Tenant extends Model
         return $this->hasMany(Environment::class);
     }
 
+    public function ownedNodes(): HasMany
+    {
+        return $this->hasMany(Node::class);
+    }
+
+    public function nodes(): BelongsToMany
+    {
+        return $this->belongsToMany(Node::class)
+            ->withPivot('inheritable')
+            ->withTimestamps();
+    }
+
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
@@ -216,6 +228,12 @@ class Tenant extends Model
             ['key' => $basePermKey . '.users.store', 'name' => 'Create ' . $basePermKey . ' users'],
             ['key' => $basePermKey . '.users.update', 'name' => 'Update ' . $basePermKey . ' users'],
             ['key' => $basePermKey . '.users.destroy', 'name' => 'Delete ' . $basePermKey . ' users'],
+            // tenant nodes
+            ['key' => $basePermKey . '.nodes.*', 'name' => 'Manage ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.index', 'name' => 'View ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.store', 'name' => 'Create ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.update', 'name' => 'Update ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.destroy', 'name' => 'Delete ' . $basePermKey . ' nodes'],
         ];
     }
 

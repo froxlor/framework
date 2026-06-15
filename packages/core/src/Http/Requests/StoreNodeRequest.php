@@ -4,6 +4,9 @@ namespace Froxlor\Core\Http\Requests;
 
 use Froxlor\Core\Http\Requests\Abstract\FroxlorFormRequest;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Services\Node\Adapter\Adapter;
+use Froxlor\Core\Services\Node\Adapter\Local;
+use Illuminate\Validation\Rule;
 
 class StoreNodeRequest extends FroxlorFormRequest
 {
@@ -23,6 +26,20 @@ class StoreNodeRequest extends FroxlorFormRequest
     public function rules(): array
     {
         return [
+            'adapter' => [
+                'required',
+                'string',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (!is_string($value) || !class_exists($value) || !is_a($value, Adapter::class, true)) {
+                        $fail('The selected ' . $attribute . ' must be a valid node adapter class.');
+                    }
+
+                    if ($value === Local::class && Node::query()->where('adapter', Local::class)->exists()) {
+                        $fail('Only one local node can exist.');
+                    }
+                },
+                Rule::in(Node::adapters()),
+            ],
             'name' => 'required|string',
             'hostname' => 'required|string',
             'username' => 'required|string',
@@ -30,6 +47,8 @@ class StoreNodeRequest extends FroxlorFormRequest
             'sshkey' => 'nullable|string',
             'sudo' => 'nullable|boolean',
             'description' => 'nullable|string',
+            'tenant_id' => 'nullable|string|ulid|exists:tenants,id',
+            'inheritable' => 'nullable|boolean',
         ];
     }
 

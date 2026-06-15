@@ -19,6 +19,7 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
 
     Route::apiResource('tenants', Api\TenantController::class);
     Route::apiResource('tenants.audit-log', Api\Tenant\AuditLogController::class)->only(['index']);
+    Route::apiResource('tenants.nodes', Api\Tenant\NodeController::class);
     Route::apiResource('tenants.environments', Api\Tenant\EnvironmentController::class);
     Route::apiResource('tenants.environments.audit-log', Api\Tenant\Environment\AuditLogController::class)->only(['index']);
     Route::apiResource('tenants.environments.users', Api\Tenant\Environment\UserController::class);

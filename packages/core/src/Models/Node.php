@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
@@ -19,6 +21,7 @@ use Illuminate\Support\Collection;
 
 /**
  * @property string $id
+ * @property string|null $tenant_id
  * @property string $adapter
  * @property string $name
  * @property string|null $description
@@ -32,6 +35,8 @@ use Illuminate\Support\Collection;
  * @property Carbon $deleted_at
  * @property Collection<NodeEnvironment> $environments
  * @property Collection<NodeInterface> $nodeInterfaces
+ * @property Tenant|null $tenant
+ * @property Collection<Tenant> $tenants
  * @property string latestUnixName
  * @property int $latestGuid
  */
@@ -72,9 +77,53 @@ class Node extends Model
         )->withPivot(['unix_name', 'guid'])->using(NodeEnvironment::class);
     }
 
+    public function tenant(): BelongsTo
+    {
+        return $this->belongsTo(Tenant::class);
+    }
+
+    public function tenants(): BelongsToMany
+    {
+        return $this->belongsToMany(Tenant::class)
+            ->withPivot('inheritable')
+            ->withTimestamps();
+    }
+
     public function nodeInterfaces(): HasMany
     {
         return $this->hasMany(NodeInterface::class);
+    }
+
+    public function scopeGlobal(Builder $query): Builder
+    {
+        return $query->whereNull('tenant_id');
+    }
+
+    public function scopeOwnedByTenant(Builder $query, Tenant $tenant): Builder
+    {
+        return $query->where('tenant_id', $tenant->id);
+    }
+
+    public function scopeAvailableForTenant(Builder $query, Tenant $tenant): Builder
+    {
+        return $query->where(function (Builder $query) use ($tenant) {
+            $query->where('tenant_id', $tenant->id)
+                ->orWhereHas('tenants', fn(Builder $query) => $query->where('tenants.id', $tenant->id));
+        });
+    }
+
+    public function isAvailableForTenant(Tenant $tenant): bool
+    {
+        return $this->tenant_id === $tenant->id
+            || $this->tenants()->where('tenants.id', $tenant->id)->exists();
+    }
+
+    public function isInheritableByTenant(Tenant $tenant): bool
+    {
+        return $this->tenants()
+            ->where('tenants.id', $tenant->id)
+            ->wherePivot('inheritable', true)
+            ->exists();
     }
 
     /**

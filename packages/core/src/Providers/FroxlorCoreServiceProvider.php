@@ -124,9 +124,9 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         UI::push('sub-sidebar', items: [
             SidebarLink::make('nodes')
-                ->label(fn() => Node::adapters() !== [Local::class]
-                    ? trans('froxlor-core::generic.nodes')
-                    : trans('froxlor-core::generic.node'))
+                ->label(fn() => Node::query()->count() === 1
+                    ? trans('froxlor-core::generic.node')
+                    : trans('froxlor-core::generic.nodes'))
                 ->route(fn() => route('resources.nodes.index'))
                 ->active(fn() => request()->routeIs('resources.nodes.*'))
                 ->visible(fn() => request()->routeIs('resources.*'))
