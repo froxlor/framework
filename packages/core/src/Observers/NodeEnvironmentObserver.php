@@ -13,6 +13,6 @@ class NodeEnvironmentObserver
     {
         // increment last_username_number and last_guid_number
         $nodeEnvironment->node->setSetting('node.last_username_number', ($nodeEnvironment->node->getSetting('node.last_username_number') + 1));
-        $nodeEnvironment->node->setSetting('node.last_guid_number', $nodeEnvironment->node->latestGuid + 1);
+        $nodeEnvironment->node->setSetting('node.last_guid_number', $nodeEnvironment->guid);
     }
 }

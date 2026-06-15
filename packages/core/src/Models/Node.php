@@ -39,6 +39,7 @@ use Illuminate\Support\Collection;
  * @property Collection<Tenant> $tenants
  * @property string latestUnixName
  * @property int $latestGuid
+ * @property int $nextGuid
  */
 #[ObservedBy(NodeObserver::class)]
 class Node extends Model
@@ -49,7 +50,7 @@ class Node extends Model
 
     protected $hidden = [
         'password',
-        'sshkey',
+        'properties->sshkey',
     ];
 
     protected $casts = [
@@ -158,7 +159,19 @@ class Node extends Model
     public function latestGuid(): Attribute
     {
         return Attribute::make(
-            get: fn() => $this->getSetting('node.last_guid_number') + 1,
+            get: fn() => $this->getSetting('node.last_guid_number'),
+        );
+    }
+
+    /**
+     * returns the next guid for this node
+     *
+     * @return Attribute
+     */
+    public function nextGuid(): Attribute
+    {
+        return Attribute::make(
+            get: fn() => $this->latestGuid + 1,
         );
     }
 

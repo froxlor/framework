@@ -167,7 +167,7 @@ class NodeView
                 ->title(trans('froxlor-core::generic.next_unix_name'))
                 ->description(trans('froxlor-core::generic.node_next_identity_description'))
                 ->value($node->latestUnixName)
-                ->trend($node->latestGuid . ' ' . trans('froxlor-core::generic.next_guid'), 'secondary')
+                ->trend($node->nextGuid . ' ' . trans('froxlor-core::generic.next_guid'), 'secondary')
                 ->icon('badge-plus')
                 ->tone('secondary'),
         ];

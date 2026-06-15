@@ -54,7 +54,7 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
     private function attachEnvToNode(Environment $env, Node $node): void
     {
         $unixName = $node->latestUnixName;
-        $guid = $node->latestGuid;
+        $guid = $node->nextGuid;
 
         // connect environment with node (must be mode=main)
         $node->environments()->attach($env, [
