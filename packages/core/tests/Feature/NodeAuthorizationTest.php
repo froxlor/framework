@@ -98,6 +98,16 @@ class NodeAuthorizationTest extends TestCase
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();
 
+        if (!Node::query()->where('adapter', Local::class)->exists()) {
+            Node::query()->create([
+                'adapter' => Local::class,
+                'name' => 'Existing Local Policy Test Node ' . str()->ulid(),
+                'hostname' => 'existing-local-node-policy-test.local',
+                'username' => 'root',
+                'sudo' => true,
+            ]);
+        }
+
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/nodes', [
                 'adapter' => Local::class,
