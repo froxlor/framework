@@ -3,6 +3,7 @@
 namespace Froxlor\Core\Database\Seeders;
 
 use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Role;
@@ -24,6 +25,7 @@ class PlansAndResourcesTableSeeder extends Seeder
         self::createPlanWithResources('Unlimited', [
             ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => -1],
             ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => -1],
+            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => -1],
             ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => -1],
             ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => -1],
             ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => -1],
@@ -34,6 +36,7 @@ class PlansAndResourcesTableSeeder extends Seeder
         self::createPlanWithResources('Everything 10', [
             ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => 10],
             ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => 10],
+            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => 10],
             ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => 10],
             ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => 10],
             ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => 10],
