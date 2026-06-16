@@ -23,7 +23,7 @@
         }
     ],
     "require": {
-        "php": "^8.2",
+        "php": "^8.5",
         "froxlor/web": "*",
         "illuminate/support": "^12.0"
     },
