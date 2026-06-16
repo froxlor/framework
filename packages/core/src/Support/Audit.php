@@ -19,7 +19,7 @@ class Audit
      */
     public static function log(string $audit_content, ?Tenant $tenant = null, ?Environment $environment = null, ?array $context = null): void
     {
-        $auditable = request()->user();
+        $auditable = request()->user() ?? auth()->user();
         if (empty($auditable)) {
             $auditable = null;
         }

@@ -8,6 +8,7 @@ use Froxlor\Core\Exceptions\UnknownTenantUserException;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\TenantUsage;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Resource;
 use RuntimeException;
 
@@ -53,6 +54,10 @@ class NodeObserver
                 }
             }
         }
+
+        Audit::log('node "' . $node->name . '" created', $node->tenant, null, [
+            'node_id' => $node->id,
+        ]);
     }
 
     /**
@@ -60,7 +65,9 @@ class NodeObserver
      */
     public function updated(Node $node): void
     {
-        //
+        Audit::log('node "' . $node->name . '" updated', $node->tenant, null, [
+            'node_id' => $node->id,
+        ]);
     }
 
     /**
@@ -84,6 +91,10 @@ class NodeObserver
                 ->where('resource_id', $node->id)
                 ->delete();
         }
+
+        Audit::log('node "' . $node->name . '" deleted', $node->tenant, null, [
+            'node_id' => $node->id,
+        ]);
     }
 
     /**

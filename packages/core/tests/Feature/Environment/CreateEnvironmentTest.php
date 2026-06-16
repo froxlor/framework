@@ -3,6 +3,7 @@
 namespace Tests\Feature\Environment;
 
 use Froxlor\Core\Jobs\Environment\CreateEnvironment;
+use Froxlor\Core\Models\AuditLog;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
@@ -64,6 +65,18 @@ class CreateEnvironmentTest extends TestCase
         $this->assertStringContainsString('candidate=\'10004\'', CreateEnvironmentFakeAdapter::$guidResolutionCommand);
         $this->assertStringContainsString('JAIL_USER="usr5"', CreateEnvironmentFakeAdapter::$uploadedScript);
         $this->assertStringContainsString('GUID="10005"', CreateEnvironmentFakeAdapter::$uploadedScript);
+
+        $auditLog = AuditLog::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('environment_id', $environment->id)
+            ->where('action', 'like', 'environment "% created on node "%')
+            ->firstOrFail();
+
+        $this->assertSame($node->id, $auditLog->context['node_id']);
+        $this->assertSame('usr5', $auditLog->context['unix_name']);
+        $this->assertSame(10005, $auditLog->context['guid']);
+        $this->assertArrayNotHasKey('tenant_id', $auditLog->context);
+        $this->assertArrayNotHasKey('environment_id', $auditLog->context);
     }
 }
 

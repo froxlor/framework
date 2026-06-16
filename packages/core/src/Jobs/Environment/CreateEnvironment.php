@@ -7,6 +7,7 @@ use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Services\Node\Adapter\Adapter;
 use Froxlor\Core\Services\Node\Exceptions\NodeException;
+use Froxlor\Core\Support\Audit;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
@@ -90,6 +91,11 @@ class CreateEnvironment implements ShouldQueue
             ]);
 
             event(new EnvironmentCreated($environment));
+            Audit::log('environment "' . $environment->name . '" created on node "' . $node->name . '"', $environment->tenant, $environment, [
+                'node_id' => $node->id,
+                'unix_name' => $unixName,
+                'guid' => $guid,
+            ]);
         });
     }
 

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Froxlor\Core\Exceptions\ResourceLimitException;
+use Froxlor\Core\Models\AuditLog;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
@@ -138,6 +139,51 @@ class NodeResourceUsageTest extends TestCase
                 'resource_id' => $node->id,
             ]);
         }
+    }
+
+    public function test_tenant_node_actions_write_audit_log_with_tenant_context(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+
+        $this->actingAs($user, 'sanctum');
+
+        $node = $this->createTenantNode($tenant, 'Audited Node');
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => null,
+            'action' => 'node "' . $node->name . '" created',
+        ]);
+
+        $node->update(['name' => 'Audited Node Updated']);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => null,
+            'action' => 'node "Audited Node Updated" updated',
+        ]);
+
+        $nodeId = $node->id;
+        $node->delete();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => null,
+            'action' => 'node "Audited Node Updated" deleted',
+        ]);
+
+        $deleteLog = AuditLog::query()
+            ->where('action', 'node "Audited Node Updated" deleted')
+            ->latest()
+            ->firstOrFail();
+
+        $this->assertSame($nodeId, $deleteLog->context['node_id']);
     }
 
     private function createTenantNode(Tenant $tenant, string $name): Node
