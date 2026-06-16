@@ -9,6 +9,7 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\TenantUsage;
 use Froxlor\Core\Support\Resource;
+use RuntimeException;
 
 class NodeObserver
 {
@@ -60,6 +61,16 @@ class NodeObserver
     public function updated(Node $node): void
     {
         //
+    }
+
+    /**
+     * Handle the Node "deleting" event.
+     */
+    public function deleting(Node $node): void
+    {
+        if ($node->environments()->exists()) {
+            throw new RuntimeException('Cannot delete node while environments are assigned.');
+        }
     }
 
     /**

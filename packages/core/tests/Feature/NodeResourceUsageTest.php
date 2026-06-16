@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use Froxlor\Core\Exceptions\ResourceLimitException;
+use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use RuntimeException;
 use Tests\Fakes\FakeNodeAdapter;
 use Tests\TestCase;
 
@@ -100,6 +102,42 @@ class NodeResourceUsageTest extends TestCase
             'resource_key' => Node::getResourceKey(),
             'resource_id' => $node->id,
         ]);
+    }
+
+    public function test_node_with_assigned_environments_cannot_be_deleted_and_keeps_usage(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $plan = Plan::query()->where('name', 'Unlimited')->firstOrFail();
+        $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
+        $tenant->update(['plan_id' => $plan->id]);
+
+        $this->actingAs($user, 'sanctum');
+
+        $node = $this->createTenantNode($tenant, 'Node With Environment');
+        $environment = Environment::query()->create([
+            'tenant_id' => $tenant->id,
+            'plan_id' => $plan->id,
+            'name' => 'Environment On Node ' . str()->ulid(),
+        ]);
+        $node->environments()->attach($environment, [
+            'unix_name' => $node->latestUnixName,
+            'guid' => $node->nextGuid,
+            'mode' => 'main',
+        ]);
+
+        $this->expectException(RuntimeException::class);
+
+        try {
+            $node->delete();
+        } finally {
+            $this->assertDatabaseHas('nodes', ['id' => $node->id]);
+            $this->assertDatabaseHas('tenant_usage', [
+                'tenant_id' => $tenant->id,
+                'resource_key' => Node::getResourceKey(),
+                'resource_id' => $node->id,
+            ]);
+        }
     }
 
     private function createTenantNode(Tenant $tenant, string $name): Node
