@@ -102,10 +102,15 @@ class Environment extends Model
      */
     public function userHasPermission(User $user, string|array $permission): bool
     {
-        /** @var EnvironmentUser $pivot */
-        $pivot = $this->users()->where('user_id', $user->id)->first()->pivot;
+        $environmentUser = $this->users()
+            ->where('users.id', $user->id)
+            ->first();
 
-        return $pivot->hasPermission($permission);
+        if ($environmentUser !== null && $environmentUser->pivot->hasPermission($permission)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**

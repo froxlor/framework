@@ -24,8 +24,8 @@ class UpdateEnvironmentRequest extends FormRequest
         return [
             'name' => 'sometimes|string',
             'description' => 'sometimes|nullable|string',
-            'plan_id' => 'sometimes|nullable|exists:plans,id',
-            'node_id' => 'sometimes|nullable|exists:nodes,id',
+            'plan_id' => 'sometimes|nullable|string|ulid|exists:plans,id',
+            'node_id' => 'sometimes|nullable|string|ulid|exists:nodes,id',
         ];
     }
 }

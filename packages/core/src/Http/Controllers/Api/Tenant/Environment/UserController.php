@@ -9,21 +9,19 @@ use Froxlor\Core\Http\Requests\UpdateUserRequest;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
-use Froxlor\Core\Services\Traits\TenantAccessPermission;
 use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class UserController extends Controller
 {
-    use TenantAccessPermission;
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request, Tenant $tenant, Environment $environment)
     {
-        //Gate::authorize('tenantEnvViewAny', [User::class, $tenant, $environment]);
+        Gate::authorize('tenantEnvViewAny', [User::class, $tenant, $environment]);
 
         return Response::jsonResourceCollection($environment->users());
     }
@@ -33,6 +31,8 @@ class UserController extends Controller
      */
     public function store(StoreEnvironmentUserRequest $request, Tenant $tenant, Environment $environment)
     {
+        Gate::authorize('tenantEnvCreate', [User::class, $tenant, $environment]);
+
         if ($environment->userHasResourceAvailable($request->user(), User::getResourceKey())) {
 
             // get validated data only for ourselves
@@ -63,7 +63,7 @@ class UserController extends Controller
      */
     public function show(Request $request, Tenant $tenant, Environment $environment, User $user)
     {
-        // Gate::authorize('tenantEnvView', [$user, $tenant, $environment]);
+        Gate::authorize('tenantEnvView', [$user, $tenant, $environment]);
 
         return Response::jsonResource($user->load(['roles', 'envUsages']));
     }
@@ -73,6 +73,8 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, Tenant $tenant, Environment $environment, User $user)
     {
+        Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
+
         $user->update($request->validated());
 
         return Response::jsonResource($user->refresh());
@@ -83,6 +85,8 @@ class UserController extends Controller
      */
     public function destroy(Request $request, Tenant $tenant, Environment $environment, User $user)
     {
+        Gate::authorize('tenantEnvDelete', [$user, $tenant, $environment]);
+
         $environment->users()->detach($user);
 
         return response()->noContent();

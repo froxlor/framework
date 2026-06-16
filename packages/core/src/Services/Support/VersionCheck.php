@@ -2,23 +2,22 @@
 
 namespace Froxlor\Core\Services\Support;
 
-use Froxlor\Core\Support\Setting;
+use Froxlor\Core\Support\FroxlorVersion;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class VersionCheck
 {
-    const UPDATE_URI = "https://version.froxlor.org/froxlor/api/v2/";
+    const UPDATE_URI = "https://version.froxlor.org/froxlor/api/v3/";
 
     public static function checkVersion(): array
     {
-        // testing data
-        $version = Setting::get('general.version');
-        $channel = '/stable';
+        $version = FroxlorVersion::release();
+        $channel = '/testing';
 
         try {
-            $latestversion = Http::withHeader('User-Agent', 'Froxlor/' . $version)->get(self::UPDATE_URI . $version . $channel);
+            $latestversion = Http::withHeader('User-Agent', FroxlorVersion::userAgent())->get(self::UPDATE_URI . $version . $channel);
         } catch (ConnectionException $e) {
             Log::error($e->getMessage());
             return [
@@ -41,7 +40,10 @@ class VersionCheck
                         'msg' => $version_result['version']
                     ];
                 }
-                return $version_result;
+                return [
+                    'code' => 0,
+                    'msg' => $version_result['info']
+                ];
             }
         }
         return [

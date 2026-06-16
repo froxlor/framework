@@ -3,8 +3,10 @@
 namespace Froxlor\Auth\Providers;
 
 use Froxlor\Auth\Livewire\Actions\Logout;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\UI\Pushable\UserDropdownLink;
 use Froxlor\UI\Support\UI;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\ServiceProvider;
 use Livewire\Livewire;
 
@@ -12,6 +14,10 @@ class FroxlorAuthServiceProvider extends ServiceProvider
 {
     public function boot(): void
     {
+        AboutCommand::add('froxlor packages', fn() => [
+            'auth' => FroxlorVersion::installedApplicationVersion('froxlor/auth', FroxlorVersion::release())
+        ]);
+
         // Routes
         $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
 

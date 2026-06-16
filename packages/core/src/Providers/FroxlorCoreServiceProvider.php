@@ -3,16 +3,29 @@
 namespace Froxlor\Core\Providers;
 
 use Froxlor\Core\Models;
+use Froxlor\Core\Models\AuditLog;
+use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\Plan;
+use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Models\User;
+use Froxlor\Core\Policies\AuditLogPolicy;
+use Froxlor\Core\Policies\EnvironmentPolicy;
+use Froxlor\Core\Policies\NodePolicy;
+use Froxlor\Core\Policies\PlanPolicy;
+use Froxlor\Core\Policies\RolePolicy;
 use Froxlor\Core\Policies\TenantPolicy;
+use Froxlor\Core\Policies\UserPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
 use Froxlor\UI\Support\UI;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
 use URL;
@@ -23,6 +36,14 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function boot(): void
     {
+        AboutCommand::add('froxlor', fn() => [
+            'version' => FroxlorVersion::release(),
+        ]);
+
+        AboutCommand::add('froxlor packages', fn() => [
+            'core' => FroxlorVersion::installedApplicationVersion('froxlor/core', FroxlorVersion::release())
+        ]);
+
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
 
@@ -42,11 +63,10 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
         // Cli commands
         $this->loadCommandsFrom(__DIR__ . '/../Console');
 
-        Gate::policy(Tenant::class, TenantPolicy::class);
-
         // User Interface
         $this->extendUserInterface();
 
+        // Relations
         Relation::morphMap([
             'environments' => Models\Environment::class,
             'nodes' => Models\Node::class,
@@ -57,6 +77,15 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
             'tenants' => Models\Tenant::class,
             'users' => Models\User::class,
         ]);
+
+        // Gates
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Gate::policy(Environment::class, EnvironmentPolicy::class);
+        Gate::policy(Node::class, NodePolicy::class);
+        Gate::policy(Plan::class, PlanPolicy::class);
+        Gate::policy(Role::class, RolePolicy::class);
+        Gate::policy(Tenant::class, TenantPolicy::class);
+        Gate::policy(User::class, UserPolicy::class);
 
         // Adapters
         Models\Node::registerAdapter(Local::class);

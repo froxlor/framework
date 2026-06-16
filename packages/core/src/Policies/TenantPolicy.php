@@ -4,9 +4,12 @@ namespace Froxlor\Core\Policies;
 
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Policies\Concerns\ResolvesScopedPermissions;
 
 class TenantPolicy
 {
+    use ResolvesScopedPermissions;
+
     public function viewAny(User $user): bool
     {
         return $user->hasPermission('tenants.index');
@@ -14,13 +17,13 @@ class TenantPolicy
 
     public function view(User $user, Tenant $tenant): bool
     {
-        return $this->hasTenantPermission($user, $tenant, 'tenants.index');
+        return $this->hasScopedPermission($user, 'tenants.index', $tenant);
     }
 
     public function create(User $user, ?Tenant $parentTenant = null): bool
     {
         if ($parentTenant !== null) {
-            return $this->hasTenantPermission($user, $parentTenant, 'tenants.store');
+            return $this->hasScopedPermission($user, 'tenants.store', $parentTenant);
         }
 
         return $user->hasPermission('tenants.store');
@@ -28,24 +31,11 @@ class TenantPolicy
 
     public function update(User $user, Tenant $tenant): bool
     {
-        return $this->hasTenantPermission($user, $tenant, 'tenants.update');
+        return $this->hasScopedPermission($user, 'tenants.update', $tenant);
     }
 
     public function delete(User $user, Tenant $tenant): bool
     {
-        return $this->hasTenantPermission($user, $tenant, 'tenants.destroy');
-    }
-
-    private function hasTenantPermission(User $user, Tenant $tenant, string $permission): bool
-    {
-        if ($user->hasPermission($permission)) {
-            return true;
-        }
-
-        if (!$tenant->users()->where('users.id', $user->id)->exists()) {
-            return false;
-        }
-
-        return $tenant->userHasPermission($user, $permission);
+        return $this->hasScopedPermission($user, 'tenants.destroy', $tenant);
     }
 }

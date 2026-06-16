@@ -6,7 +6,6 @@ use Froxlor\Core\Events\Api\ResourceCreated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreRoleRequest;
 use Froxlor\Core\Http\Requests\UpdateRoleRequest;
-use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Support\Response;
 use Illuminate\Support\Facades\Gate;
@@ -18,7 +17,7 @@ class RoleController extends Controller
      */
     public function index()
     {
-        //Gate::authorize('viewAny', [Role::class]);
+        Gate::authorize('viewAny', Role::class);
 
         $roles = Role::query()
             ->whereNull('tenant_id')
@@ -32,7 +31,7 @@ class RoleController extends Controller
      */
     public function store(StoreRoleRequest $request)
     {
-        //Gate::authorize('create', Role::class);
+        Gate::authorize('create', Role::class);
 
         // get validated data only for ourselves
         $roleData = $request->validatedResource();
@@ -52,7 +51,7 @@ class RoleController extends Controller
      */
     public function show(Role $role)
     {
-        //Gate::authorize('view', [$role]);
+        Gate::authorize('view', $role);
 
         return Response::jsonResource($role->load(['permissions', 'users']));
     }
@@ -62,6 +61,8 @@ class RoleController extends Controller
      */
     public function update(UpdateRoleRequest $request, Role $role)
     {
+        Gate::authorize('update', $role);
+
         $role->update($request->validated());
 
         return Response::jsonResource($role->refresh());
@@ -72,6 +73,8 @@ class RoleController extends Controller
      */
     public function destroy(Role $role)
     {
+        Gate::authorize('delete', $role);
+
         $role->delete();
 
         return response()->noContent();

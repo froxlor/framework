@@ -3,6 +3,7 @@
 namespace Froxlor\Mail\Providers;
 
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Domain\Models\Domain;
 use Froxlor\Mail\Models;
@@ -15,7 +16,9 @@ class FroxlorMailServiceProvider extends PackageServiceProvider
 {
     public function boot(): void
     {
-        AboutCommand::add('froxlor', fn() => ['mail' => '3.0.0']);
+        AboutCommand::add('froxlor packages', fn() => [
+            'mail' => FroxlorVersion::installedApplicationVersion('froxlor/mail', FroxlorVersion::release())
+        ]);
 
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');

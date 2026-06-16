@@ -197,10 +197,14 @@ class Tenant extends Model
      */
     public function userHasPermission(User $user, string|array $permission): bool
     {
-        /** @var TenantUser $pivot */
-        $pivot = $this->users()->where('user_id', $user->id)->first()->pivot;
+        $tenantUser = $this->users()
+            ->where('users.id', $user->id)
+            ->first();
 
-        return $pivot->hasPermission($permission);
+        if ($tenantUser !== null && $tenantUser->pivot->hasPermission($permission)) {
+            return true;
+        }
+        return false;
     }
 
     public static function getAllPermissions(): array
@@ -237,7 +241,7 @@ class Tenant extends Model
         ];
     }
 
-    protected function initials (): Attribute
+    protected function initials(): Attribute
     {
         $parts = preg_split('/\s+/', trim($this->name)) ?: [];
         $initials = '';
@@ -250,6 +254,6 @@ class Tenant extends Model
                 break;
             }
         }
-        return Attribute::get(fn () => $initials ?: '?');
+        return Attribute::get(fn() => $initials ?: '?');
     }
 }

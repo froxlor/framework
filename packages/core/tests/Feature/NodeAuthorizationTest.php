@@ -12,6 +12,7 @@ use Tests\TestCase;
 
 class NodeAuthorizationTest extends TestCase
 {
+
     protected function setUp(): void
     {
         parent::setUp();
