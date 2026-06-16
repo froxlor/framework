@@ -9,7 +9,6 @@ use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Support\Response;
 use Illuminate\Support\Facades\Gate;
-use Illuminate\Validation\Rule;
 
 class PlanController extends Controller
 {
@@ -18,7 +17,7 @@ class PlanController extends Controller
      */
     public function index()
     {
-       // Gate::authorize('viewAny', Plan::class);
+        Gate::authorize('viewAny', Plan::class);
 
         return Response::jsonResourceCollection(Plan::query()->whereNull('tenant_id'));
     }
@@ -28,7 +27,7 @@ class PlanController extends Controller
      */
     public function store(StorePlanRequest $request)
     {
-        //Gate::authorize('create', Plan::class);
+        Gate::authorize('create', Plan::class);
 
         // get validated data only for ourselves
         $planData = $request->validatedResource();
@@ -48,7 +47,7 @@ class PlanController extends Controller
      */
     public function show(Plan $plan)
     {
-        //Gate::authorize('view', Plan::class);
+        Gate::authorize('view', $plan);
 
         return Response::jsonResource($plan->load(['resources']));
     }
@@ -58,7 +57,7 @@ class PlanController extends Controller
      */
     public function update(UpdatePlanRequest $request, Plan $plan)
     {
-        Gate::authorize('update', Plan::class);
+        Gate::authorize('update', $plan);
 
         $plan->update($request->validated());
 
@@ -70,7 +69,7 @@ class PlanController extends Controller
      */
     public function destroy(Plan $plan)
     {
-        Gate::authorize('delete', Plan::class);
+        Gate::authorize('delete', $plan);
 
         $plan->delete();
 

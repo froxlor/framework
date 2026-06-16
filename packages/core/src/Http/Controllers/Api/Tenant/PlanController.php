@@ -8,20 +8,18 @@ use Froxlor\Core\Http\Requests\StorePlanRequest;
 use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
-use Froxlor\Core\Services\Traits\TenantAccessPermission;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class PlanController extends Controller
 {
-    use TenantAccessPermission;
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request, Tenant $tenant)
     {
-        // Gate::authorize('tenantViewAny', [Plan::class, $tenant]);
+        Gate::authorize('tenantViewAny', [Plan::class, $tenant]);
 
         $type = $request->query('type', '');
         $tenantPlans = Plan::query()->where('tenant_id', '=', $tenant->id);
@@ -41,7 +39,7 @@ class PlanController extends Controller
      */
     public function store(StorePlanRequest $request, Tenant $tenant)
     {
-        //Gate::authorize('tenantCreate', [Plan::class, $tenant]);
+        Gate::authorize('tenantCreate', [Plan::class, $tenant]);
 
         // get validated data only for ourselves
         $planData = $request->validatedResource();
@@ -63,7 +61,7 @@ class PlanController extends Controller
      */
     public function show(Request $request, Tenant $tenant, Plan $plan)
     {
-        // Gate::authorize('tenantView', [$plan, $tenant]);
+        Gate::authorize('tenantView', [$plan, $tenant]);
 
         $resourceUsages = $tenant->tenantUsageList;
         $plan->load('resources');
@@ -81,6 +79,8 @@ class PlanController extends Controller
      */
     public function update(UpdatePlanRequest $request, Tenant $tenant, Plan $plan)
     {
+        Gate::authorize('tenantUpdate', [$plan, $tenant]);
+
         $plan->update($request->validated());
 
         return Response::jsonResource($plan->refresh());
@@ -91,6 +91,8 @@ class PlanController extends Controller
      */
     public function destroy(Request $request, Tenant $tenant, Plan $plan)
     {
+        Gate::authorize('tenantDelete', [$plan, $tenant]);
+
         $plan->delete();
 
         return response()->noContent();

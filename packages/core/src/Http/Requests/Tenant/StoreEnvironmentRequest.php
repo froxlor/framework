@@ -26,8 +26,8 @@ class StoreEnvironmentRequest extends FroxlorFormRequest
         return [
             'name' => 'required|string',
             'description' => 'nullable|string',
-            'plan_id' => 'nullable|exists:plans,id',
-            'node_id' => 'nullable|exists:nodes,id',
+            'plan_id' => 'nullable|string|ulid|exists:plans,id',
+            'node_id' => 'nullable|string|ulid|exists:nodes,id',
         ];
     }
 

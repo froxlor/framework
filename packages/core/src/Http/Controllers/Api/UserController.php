@@ -12,6 +12,7 @@ use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 
 class UserController extends Controller
 {
@@ -20,7 +21,7 @@ class UserController extends Controller
      */
     public function index(Request $request)
     {
-        // @todo Gate::authorize('viewAny', User::class);
+        Gate::authorize('viewAny', User::class);
 
         $rootTenant = Tenant::query()->whereNull('parent_tenant_id')->first();
 
@@ -32,7 +33,7 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-        // @todo Gate::authorize('create', User::class);
+        Gate::authorize('create', User::class);
 
         // get validated data only for ourselves
         $userData = $request->validatedResource();
@@ -71,7 +72,7 @@ class UserController extends Controller
      */
     public function show(User $user)
     {
-        // @todo Gate::authorize('view', $user);
+        Gate::authorize('view', $user);
 
         $user->load(['roles', 'tenants', 'environments']);
 
@@ -97,6 +98,8 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user)
     {
+        Gate::authorize('update', $user);
+
         $userData = $request->validated();
         $tenantId = $this->getNonModelRequestData('tenant_id', $userData);
         $roleId = $this->getNonModelRequestData('role_id', $userData)
@@ -133,7 +136,7 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        // @todo Gate::authorize('delete', $user);
+        Gate::authorize('delete', $user);
 
         $user->delete();
 

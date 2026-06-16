@@ -9,21 +9,18 @@ use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
-use Froxlor\Core\Services\Traits\TenantAccessPermission;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 class PlansController extends Controller
 {
-    use TenantAccessPermission;
-
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request, Tenant $tenant, Environment $environment)
     {
-        //Gate::authorize('tenantEnvViewAny', [Plan::class, $tenant, $environment]);
+        Gate::authorize('tenantEnvViewAny', [Plan::class, $tenant, $environment]);
 
         return Response::jsonResourceCollection(Plan::query()->where('tenant_id', $tenant->id)->where('type', 'environment'));
     }
@@ -33,6 +30,8 @@ class PlansController extends Controller
      */
     public function store(StoreEnvironmentPlanRequest $request, Tenant $tenant, Environment $environment)
     {
+        Gate::authorize('tenantEnvCreate', [Plan::class, $tenant, $environment]);
+
         // get validated data only for ourselves
         $planData = $request->validatedResource();
         // fixed values
@@ -54,7 +53,7 @@ class PlansController extends Controller
      */
     public function show(Request $request, Tenant $tenant, Environment $environment, Plan $plan)
     {
-        //Gate::authorize('tenantEnvView', [$plan, $tenant, $environment]);
+        Gate::authorize('tenantEnvView', [$plan, $tenant, $environment]);
 
         return Response::jsonResource($plan);
     }
@@ -64,6 +63,8 @@ class PlansController extends Controller
      */
     public function update(UpdatePlanRequest $request, Tenant $tenant, Environment $environment, Plan $plan)
     {
+        Gate::authorize('tenantEnvUpdate', [$plan, $tenant, $environment]);
+
         $plan->update($request->validated());
 
         return Response::jsonResource($plan->refresh());
@@ -74,6 +75,8 @@ class PlansController extends Controller
      */
     public function destroy(Request $request, Tenant $tenant, Environment $environment, Plan $plan)
     {
+        Gate::authorize('tenantEnvDelete', [$plan, $tenant, $environment]);
+
         $plan->delete();
 
         return response()->noContent();

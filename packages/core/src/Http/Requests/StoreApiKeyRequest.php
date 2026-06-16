@@ -15,7 +15,7 @@ class StoreApiKeyRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string'],
-            'user_id' => ['nullable', 'string', 'exists:users,id'],
+            'user_id' => ['nullable', 'string', 'ulid', 'exists:users,id'],
             'abilities' => ['nullable', 'string'],
             'expires_at' => ['nullable', 'date'],
         ];

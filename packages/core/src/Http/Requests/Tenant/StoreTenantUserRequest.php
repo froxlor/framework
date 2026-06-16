@@ -20,10 +20,10 @@ class StoreTenantUserRequest extends FroxlorFormRequest
             'company_name' => 'nullable',
             'email' => 'required|string|unique:users,email',
             'password' => 'required|string',
-            'role_id' => 'required_without:role|string|exists:roles,id',
-            'plan_id' => 'nullable|string|exists:plans,id',
-            'role' => 'required_without:role_id|string|exists:roles,id',
-            'plan' => 'nullable|string|exists:plans,id',
+            'role_id' => 'required_without:role|string|ulid|exists:roles,id',
+            'plan_id' => 'nullable|string|ulid|exists:plans,id',
+            'role' => 'required_without:role_id|string|ulid|exists:roles,id',
+            'plan' => 'nullable|string|ulid|exists:plans,id',
         ];
     }
 
