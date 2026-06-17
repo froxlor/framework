@@ -9,10 +9,12 @@ use Froxlor\Core\Http\Requests\UpdateEnvironmentRequest;
 use Froxlor\Core\Jobs\Environment\CreateEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class EnvironmentController extends Controller
 {
@@ -39,6 +41,7 @@ class EnvironmentController extends Controller
         $envData['tenant_id'] = $tenant->id;
         // non-model values
         $node_id = $this->getNonModelRequestData('node_id', $envData);
+        $this->ensurePlanCanBeUsedForEnvironment($envData['plan_id'] ?? null, $tenant);
         // create resource
         $env = Environment::query()->create($envData);
         // build up validated data for others
@@ -47,7 +50,7 @@ class EnvironmentController extends Controller
         event(new ResourceCreated($env, $eventData));
         // connect to node and create environment if given
         if (!empty($node_id)) {
-            $node = Node::query()->findOrFail($node_id);
+            $node = $this->nodeForTenant($node_id, $tenant);
             dispatch(new CreateEnvironment($env->refresh(), $node));
         }
 
@@ -74,11 +77,12 @@ class EnvironmentController extends Controller
 
         $envData = $request->validated();
         $nodeId = $this->getNonModelRequestData('node_id', $envData);
+        $this->ensurePlanCanBeUsedForEnvironment($envData['plan_id'] ?? null, $tenant);
 
         $environment->update($envData);
 
         if (!empty($nodeId)) {
-            $node = Node::query()->findOrFail($nodeId);
+            $node = $this->nodeForTenant($nodeId, $tenant);
             dispatch(new CreateEnvironment($environment->refresh(), $node));
         }
 
@@ -95,5 +99,50 @@ class EnvironmentController extends Controller
         $environment->delete();
 
         return response()->noContent();
+    }
+
+    /**
+     * Resolve a node and ensure it is usable in the current tenant context.
+     *
+     * A tenant environment may only be provisioned on nodes that are directly
+     * owned by the tenant or explicitly available to it through node inheritance.
+     *
+     * @throws ValidationException
+     */
+    private function nodeForTenant(string $nodeId, Tenant $tenant): Node
+    {
+        $node = Node::query()->findOrFail($nodeId);
+
+        if (!$node->isAvailableForTenant($tenant)) {
+            throw ValidationException::withMessages([
+                'node_id' => trans('validation.exists', ['attribute' => 'node_id']),
+            ]);
+        }
+
+        return $node;
+    }
+
+    /**
+     * Ensure the selected plan is an environment plan available to the tenant.
+     *
+     * Environment plans may be global or tenant-owned. Plans owned by another
+     * tenant, or plans for another plan type, must not be assignable even when
+     * their ULID is known.
+     *
+     * @throws ValidationException
+     */
+    private function ensurePlanCanBeUsedForEnvironment(?string $planId, Tenant $tenant): void
+    {
+        if ($planId === null) {
+            return;
+        }
+
+        $plan = Plan::query()->findOrFail($planId);
+
+        if (!$plan->isEnvironmentPlan() || !$plan->isAvailableForTenant($tenant)) {
+            throw ValidationException::withMessages([
+                'plan_id' => trans('validation.exists', ['attribute' => 'plan_id']),
+            ]);
+        }
     }
 }

@@ -203,7 +203,7 @@ class Resource
 
         /** @var Tenant|null $parentTenant */
         $parentTenant = $tenants->first(
-            fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->getSubTenantsIds(), true)
+            fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->descendantIds(), true)
         );
 
         return $parentTenant;
@@ -235,6 +235,6 @@ class Resource
     {
         return $user->tenants()
             ->get()
-            ->contains(fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->getSubTenantsIds(), true));
+            ->contains(fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->descendantIds(), true));
     }
 }

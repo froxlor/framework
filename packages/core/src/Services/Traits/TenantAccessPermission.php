@@ -18,7 +18,7 @@ trait TenantAccessPermission
         // check whether the current tenant is a sub-tenant of the users tenant
         $isSubTenantOfUserTenant = false;
         $request_user->tenants()->each(function (Tenant $tenant) use ($target_tenant, &$isSubTenantOfUserTenant) {
-            if (in_array($target_tenant->id, $tenant->getSubTenantsIds())) {
+            if (in_array($target_tenant->id, $tenant->descendantIds(), true)) {
                 $isSubTenantOfUserTenant = true;
                 // break out of each()
                 return false;
