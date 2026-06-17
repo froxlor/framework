@@ -57,6 +57,26 @@ class UserAuthorizationTest extends TestCase
             ->assertNoContent();
     }
 
+    public function test_user_update_email_must_be_unique_except_current_user(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $targetUser = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $otherUser = User::query()->where('email', 'dev3@froxlor.org')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/users/' . $targetUser->id, [
+                'email' => $targetUser->email,
+            ])
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/users/' . $targetUser->id, [
+                'email' => $otherUser->email,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['email']);
+    }
+
     public function test_tenant_admin_cannot_manage_global_user(): void
     {
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
