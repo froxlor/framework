@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api\Tenant;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\Tenant\StoreEnvironmentRequest;
 use Froxlor\Core\Http\Requests\UpdateEnvironmentRequest;
@@ -45,7 +47,7 @@ class EnvironmentController extends Controller
         // create resource
         $env = Environment::query()->create($envData);
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($env, $eventData));
         // connect to node and create environment if given
@@ -80,6 +82,7 @@ class EnvironmentController extends Controller
         $this->ensurePlanCanBeUsedForEnvironment($envData['plan_id'] ?? null, $tenant);
 
         $environment->update($envData);
+        event(new ResourceUpdated($environment, $this->validatedEventData($request)));
 
         if (!empty($nodeId)) {
             $node = $this->nodeForTenant($nodeId, $tenant);
@@ -97,6 +100,7 @@ class EnvironmentController extends Controller
         Gate::authorize('tenantDelete', [$environment, $tenant]);
 
         $environment->delete();
+        event(new ResourceDeleted($environment, []));
 
         return response()->noContent();
     }

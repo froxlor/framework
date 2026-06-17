@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
@@ -50,7 +52,7 @@ class NodeController extends Controller
             ]);
         }
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($node, $eventData));
         // run explore-node job
@@ -78,6 +80,7 @@ class NodeController extends Controller
         Gate::authorize('update', $node);
 
         $node->update($request->validated());
+        event(new ResourceUpdated($node, $this->validatedEventData($request)));
 
         return Response::jsonResource($node);
     }
@@ -90,6 +93,7 @@ class NodeController extends Controller
         Gate::authorize('delete', $node);
 
         $node->delete();
+        event(new ResourceDeleted($node, []));
 
         return response()->noContent();
     }

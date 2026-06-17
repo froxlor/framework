@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api\Tenant;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\Tenant\StoreTenantRoleRequest;
 use Froxlor\Core\Http\Requests\UpdateRoleRequest;
@@ -48,7 +50,7 @@ class RoleController extends Controller
         // create resource
         $role = Role::query()->create($roleData);
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($role, $eventData));
 
@@ -74,6 +76,7 @@ class RoleController extends Controller
         Gate::authorize('tenantUpdate', [$role, $tenant]);
 
         $role->update($request->validated());
+        event(new ResourceUpdated($role, $this->validatedEventData($request)));
 
         return Response::jsonResource($role->refresh());
     }
@@ -86,6 +89,7 @@ class RoleController extends Controller
         Gate::authorize('tenantDelete', [$role, $tenant]);
 
         $role->delete();
+        event(new ResourceDeleted($role, []));
 
         return response()->noContent();
     }

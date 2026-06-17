@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api\Tenant;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
@@ -45,7 +47,7 @@ class NodeController extends Controller
             $tenant->id => ['inheritable' => $inheritable],
         ]);
 
-        event(new ResourceCreated($node, $request->validatedEvent()));
+        event(new ResourceCreated($node, $this->validatedEventData($request)));
 
         dispatch(new ExploreNode($node, true));
 
@@ -70,6 +72,7 @@ class NodeController extends Controller
         Gate::authorize('tenantUpdate', [$node, $tenant]);
 
         $node->update($request->validated());
+        event(new ResourceUpdated($node, $this->validatedEventData($request)));
 
         return Response::jsonResource($node->refresh());
     }
@@ -82,6 +85,7 @@ class NodeController extends Controller
         Gate::authorize('tenantDelete', [$node, $tenant]);
 
         $node->delete();
+        event(new ResourceDeleted($node, []));
 
         return response()->noContent();
     }

@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreTenantRequest;
 use Froxlor\Core\Http\Requests\UpdateTenantRequest;
@@ -49,7 +51,7 @@ class TenantController extends Controller
             ]);
         }
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($tenant, $eventData));
 
@@ -75,6 +77,7 @@ class TenantController extends Controller
         Gate::authorize('update', $tenant);
 
         $tenant->update($request->validated());
+        event(new ResourceUpdated($tenant, $this->validatedEventData($request)));
 
         return Response::jsonResource($tenant->refresh());
     }
@@ -87,6 +90,7 @@ class TenantController extends Controller
         Gate::authorize('delete', $tenant);
 
         $tenant->delete();
+        event(new ResourceDeleted($tenant, []));
 
         return response()->noContent();
     }

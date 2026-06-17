@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreUserRequest;
 use Froxlor\Core\Http\Requests\UpdateUserRequest;
@@ -59,7 +61,7 @@ class UserController extends Controller
         $user = User::query()->create($userData);
         $targetTenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($user, $eventData));
 
@@ -128,6 +130,8 @@ class UserController extends Controller
             }
         }
 
+        event(new ResourceUpdated($user, $this->validatedEventData($request)));
+
         return Response::jsonResource($user);
     }
 
@@ -139,6 +143,7 @@ class UserController extends Controller
         Gate::authorize('delete', $user);
 
         $user->delete();
+        event(new ResourceDeleted($user, []));
 
         return response()->noContent();
     }

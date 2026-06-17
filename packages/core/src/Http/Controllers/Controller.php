@@ -35,4 +35,19 @@ abstract class Controller
         unset($reqData[$key]);
         return $value;
     }
+
+    /**
+     * Return validated API event payload when the request supports event rules.
+     *
+     * Store requests based on FroxlorFormRequest can expose additional event
+     * data through validatedEvent(). Plain Laravel FormRequest instances do
+     * not, so callers receive an empty payload until their request class opts in.
+     *
+     * @param object $request Request object passed to the controller action.
+     * @return array<string, mixed>
+     */
+    protected function validatedEventData(object $request): array
+    {
+        return method_exists($request, 'validatedEvent') ? $request->validatedEvent() : [];
+    }
 }
