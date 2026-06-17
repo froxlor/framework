@@ -52,7 +52,7 @@ class Node extends Model
 
     protected $hidden = [
         'password',
-        'properties->sshkey',
+        'properties->ssh_key',
     ];
 
     protected $casts = [

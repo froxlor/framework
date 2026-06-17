@@ -5,6 +5,7 @@ namespace Froxlor\Core\Http\Controllers\Api;
 use Froxlor\Core\Events\Api\ResourceCreated;
 use Froxlor\Core\Events\Api\ResourceDeleted;
 use Froxlor\Core\Events\Api\ResourceUpdated;
+use Froxlor\Core\Http\Controllers\Concerns\NormalizesNodeProperties;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Gate;
 
 class NodeController extends Controller
 {
+    use NormalizesNodeProperties;
+
     /**
      * Display a listing of the resource.
      */
@@ -37,6 +40,7 @@ class NodeController extends Controller
         $nodeData = $request->validatedResource();
         $inheritable = (bool)($nodeData['inheritable'] ?? false);
         unset($nodeData['inheritable']);
+        $nodeData = $this->normalizeNodeProperties($nodeData);
 
         $tenant = null;
         if (!empty($nodeData['tenant_id'])) {
@@ -79,7 +83,7 @@ class NodeController extends Controller
     {
         Gate::authorize('update', $node);
 
-        $node->update($request->validated());
+        $node->update($this->normalizeNodeProperties($request->validated(), $node));
         event(new ResourceUpdated($node, $this->validatedEventData($request)));
 
         return Response::jsonResource($node);
@@ -97,4 +101,5 @@ class NodeController extends Controller
 
         return response()->noContent();
     }
+
 }

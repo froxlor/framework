@@ -5,6 +5,7 @@ namespace Froxlor\Core\Http\Controllers\Api\Tenant;
 use Froxlor\Core\Events\Api\ResourceCreated;
 use Froxlor\Core\Events\Api\ResourceDeleted;
 use Froxlor\Core\Events\Api\ResourceUpdated;
+use Froxlor\Core\Http\Controllers\Concerns\NormalizesNodeProperties;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
@@ -16,6 +17,8 @@ use Illuminate\Support\Facades\Gate;
 
 class NodeController extends Controller
 {
+    use NormalizesNodeProperties;
+
     /**
      * Display a listing of the resource.
      */
@@ -41,6 +44,7 @@ class NodeController extends Controller
         $inheritable = (bool)($nodeData['inheritable'] ?? false);
         unset($nodeData['tenant_id'], $nodeData['inheritable']);
         $nodeData['tenant_id'] = $tenant->id;
+        $nodeData = $this->normalizeNodeProperties($nodeData);
 
         $node = Node::query()->create($nodeData);
         $node->tenants()->syncWithoutDetaching([
@@ -71,7 +75,7 @@ class NodeController extends Controller
     {
         Gate::authorize('tenantUpdate', [$node, $tenant]);
 
-        $node->update($request->validated());
+        $node->update($this->normalizeNodeProperties($request->validated(), $node));
         event(new ResourceUpdated($node, $this->validatedEventData($request)));
 
         return Response::jsonResource($node->refresh());
@@ -89,4 +93,5 @@ class NodeController extends Controller
 
         return response()->noContent();
     }
+
 }

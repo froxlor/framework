@@ -4,6 +4,7 @@ namespace Froxlor\Core\Http\Requests;
 
 use Froxlor\Core\Http\Requests\Abstract\FroxlorFormRequest;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Rules\SshPrivateKey;
 use Froxlor\Core\Services\Node\Adapter\Adapter;
 use Froxlor\Core\Services\Node\Adapter\Local;
 use Illuminate\Validation\Rule;
@@ -44,7 +45,7 @@ class StoreNodeRequest extends FroxlorFormRequest
             'hostname' => 'required|string',
             'username' => 'required|string',
             'password' => 'nullable|string',
-            'sshkey' => 'nullable|string',
+            'ssh_key' => ['nullable', 'string', new SshPrivateKey($this->input('password'))],
             'sudo' => 'nullable|boolean',
             'description' => 'nullable|string',
             'tenant_id' => 'nullable|string|ulid|exists:tenants,id',

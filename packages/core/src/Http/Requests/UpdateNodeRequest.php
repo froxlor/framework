@@ -2,6 +2,7 @@
 
 namespace Froxlor\Core\Http\Requests;
 
+use Froxlor\Core\Rules\SshPrivateKey;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateNodeRequest extends FormRequest
@@ -26,7 +27,7 @@ class UpdateNodeRequest extends FormRequest
             'hostname' => 'required|string',
             'username' => 'required|string',
             'password' => 'nullable|string',
-            'sshkey' => 'nullable|string',
+            'ssh_key' => ['nullable', 'string', new SshPrivateKey($this->input('password'))],
             'sudo' => 'boolean',
             'description' => 'nullable|string',
         ];
