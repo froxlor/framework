@@ -3,6 +3,7 @@
 namespace Tests\Feature\Environment;
 
 use Froxlor\Core\Jobs\Environment\CreateEnvironment;
+use Froxlor\Core\Jobs\Environment\DeleteEnvironment;
 use Froxlor\Core\Models\AuditLog;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
@@ -75,6 +76,58 @@ class CreateEnvironmentTest extends TestCase
         $this->assertSame($node->id, $auditLog->context['node_id']);
         $this->assertSame('usr5', $auditLog->context['unix_name']);
         $this->assertSame(10005, $auditLog->context['guid']);
+        $this->assertArrayNotHasKey('tenant_id', $auditLog->context);
+        $this->assertArrayNotHasKey('environment_id', $auditLog->context);
+    }
+
+    public function test_environment_delete_removes_jail_from_assigned_node(): void
+    {
+        $tenant = Tenant::query()->firstOrFail();
+        $plan = Plan::query()->firstOrFail();
+        $node = Node::query()->create([
+            'adapter' => CreateEnvironmentFakeAdapter::class,
+            'name' => 'Delete Environment Test Node',
+            'hostname' => 'delete-environment-test-node.local',
+            'username' => 'root',
+            'sudo' => true,
+        ]);
+        $node->addSetting('node.basedir', '/srv/environments', Node::getTypeSetting('node.basedir'));
+
+        $environment = Environment::query()->create([
+            'tenant_id' => $tenant->id,
+            'plan_id' => $plan->id,
+            'name' => 'Delete Environment Test',
+        ]);
+        $environment->nodes()->attach($node, [
+            'unix_name' => 'usr7',
+            'guid' => 10007,
+            'mode' => 'main',
+        ]);
+
+        DeleteEnvironment::dispatchSync($environment->refresh());
+
+        $this->assertDatabaseMissing('node_environments', [
+            'environment_id' => $environment->id,
+            'node_id' => $node->id,
+        ]);
+
+        $deleteCommands = implode(PHP_EOL, CreateEnvironmentFakeAdapter::$executedCommands[0]);
+
+        $this->assertStringContainsString("JAILBASE='/srv/environments/" . $environment->id . "'", $deleteCommands);
+        $this->assertStringContainsString("JAIL_USER='usr7'", $deleteCommands);
+        $this->assertStringContainsString('userdel "$JAIL_USER"', $deleteCommands);
+        $this->assertStringContainsString('groupdel "$JAIL_USER"', $deleteCommands);
+        $this->assertStringContainsString('rm -rf -- "$JAILBASE"', $deleteCommands);
+
+        $auditLog = AuditLog::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('environment_id', $environment->id)
+            ->where('action', 'environment "Delete Environment Test" deleted from node "Delete Environment Test Node"')
+            ->firstOrFail();
+
+        $this->assertSame($node->id, $auditLog->context['node_id']);
+        $this->assertSame('usr7', $auditLog->context['unix_name']);
+        $this->assertSame(10007, $auditLog->context['guid']);
         $this->assertArrayNotHasKey('tenant_id', $auditLog->context);
         $this->assertArrayNotHasKey('environment_id', $auditLog->context);
     }

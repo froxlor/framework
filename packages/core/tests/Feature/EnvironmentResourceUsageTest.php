@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\AuditLog;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
@@ -89,5 +90,60 @@ class EnvironmentResourceUsageTest extends TestCase
             'resource_key' => Environment::getResourceKey(),
             'resource_id' => $environment->id,
         ]);
+    }
+
+    public function test_tenant_environment_actions_write_audit_log_with_tenant_and_environment_context(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+
+        $environmentId = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/environments', [
+                'name' => 'Audited Environment ' . str()->ulid(),
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $environment = Environment::query()->findOrFail($environmentId);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => $environment->id,
+            'action' => 'environment "' . $environment->name . '" created',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id, [
+                'name' => 'Audited Environment Updated',
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => $environment->id,
+            'action' => 'environment "Audited Environment Updated" updated',
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id)
+            ->assertNoContent();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_id' => $user->id,
+            'tenant_id' => $tenant->id,
+            'environment_id' => $environment->id,
+            'action' => 'environment "Audited Environment Updated" deleted',
+        ]);
+
+        $deleteLog = AuditLog::query()
+            ->where('action', 'environment "Audited Environment Updated" deleted')
+            ->latest()
+            ->firstOrFail();
+
+        $this->assertSame($environment->plan_id, $deleteLog->context['plan_id']);
     }
 }

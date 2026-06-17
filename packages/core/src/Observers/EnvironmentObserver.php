@@ -7,9 +7,13 @@ use Froxlor\Core\Exceptions\ResourceLimitException;
 use Froxlor\Core\Exceptions\ResourceNotFoundException;
 use Froxlor\Core\Exceptions\UnknownEnvironmentUserException;
 use Froxlor\Core\Exceptions\UnknownTenantUserException;
+use Froxlor\Core\Jobs\Environment\DeleteEnvironment;
 use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\TenantUsage;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Resource;
+use Throwable;
 
 class EnvironmentObserver
 {
@@ -67,5 +71,47 @@ class EnvironmentObserver
         if (!$actingTenant->is($environment->tenant)) {
             Resource::addUsage($environment->tenant, $environment, auth()->user());
         }
+
+        Audit::log('environment "' . $environment->name . '" created', $environment->tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
+    }
+
+    /**
+     * Record an audit log entry for environment changes.
+     */
+    public function updated(Environment $environment): void
+    {
+        Audit::log('environment "' . $environment->name . '" updated', $environment->tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
+    }
+
+    /**
+     * Remove assigned node data before the database resource is deleted.
+     *
+     * The cleanup runs synchronously so failed node cleanup prevents orphaned
+     * jails while keeping the environment and pivot rows available for retry.
+     *
+     * @throws Throwable
+     */
+    public function deleting(Environment $environment): void
+    {
+        DeleteEnvironment::dispatchSync($environment);
+    }
+
+    /**
+     * Record an audit log entry after an environment has been deleted.
+     */
+    public function deleted(Environment $environment): void
+    {
+        TenantUsage::query()
+            ->where('resource_key', Environment::getResourceKey())
+            ->where('resource_id', $environment->id)
+            ->delete();
+
+        Audit::log('environment "' . $environment->name . '" deleted', $environment->tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
     }
 }
