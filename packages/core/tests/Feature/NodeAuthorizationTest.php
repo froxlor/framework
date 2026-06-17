@@ -170,6 +170,36 @@ class NodeAuthorizationTest extends TestCase
             ->assertJsonValidationErrors(['ssh_key']);
     }
 
+    public function test_node_update_allows_partial_payload(): void
+    {
+        Queue::fake();
+
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+
+        $nodeId = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/nodes', [
+                'adapter' => FakeNodeAdapter::class,
+                'name' => 'Partial Update Policy Test Node ' . str()->ulid(),
+                'hostname' => 'partial-update-node-policy-test.local',
+                'username' => 'root',
+                'sudo' => true,
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/nodes/' . $nodeId, [
+                'description' => 'Only the description changed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.description', 'Only the description changed');
+
+        $node = Node::query()->findOrFail($nodeId);
+
+        $this->assertSame('partial-update-node-policy-test.local', $node->hostname);
+        $this->assertSame('root', $node->username);
+    }
+
     public function test_second_local_node_is_rejected(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();

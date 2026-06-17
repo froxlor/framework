@@ -23,9 +23,9 @@ class UpdateNodeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => ['required', 'string'],
-            'hostname' => 'required|string',
-            'username' => 'required|string',
+            'name' => ['sometimes', 'string'],
+            'hostname' => 'sometimes|string',
+            'username' => 'sometimes|string',
             'password' => 'nullable|string',
             'ssh_key' => ['nullable', 'string', new SshPrivateKey($this->input('password'))],
             'sudo' => 'boolean',
