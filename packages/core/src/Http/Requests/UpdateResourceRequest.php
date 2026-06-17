@@ -2,6 +2,7 @@
 
 namespace Froxlor\Core\Http\Requests;
 
+use Froxlor\Core\Rules\ResourceModelType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -34,7 +35,7 @@ class UpdateResourceRequest extends FormRequest
             ],
             'name' => 'sometimes|string',
             'description' => 'sometimes|nullable|string',
-            'model_type' => 'sometimes|string',
+            'model_type' => ['sometimes', 'string', new ResourceModelType()],
             'type' => 'sometimes|string|in:tenant,environment',
         ];
     }
