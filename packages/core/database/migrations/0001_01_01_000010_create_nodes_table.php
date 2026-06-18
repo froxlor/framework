@@ -12,6 +12,7 @@ return new class extends Migration {
     {
         Schema::create('nodes', function (Blueprint $table) {
             $table->ulid('id')->primary();
+            $table->ulid('tenant_id')->nullable()->index();
             $table->string('adapter');
             $table->string('name');
             $table->string('description')->nullable();

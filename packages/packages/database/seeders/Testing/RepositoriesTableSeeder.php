@@ -15,8 +15,23 @@ class RepositoriesTableSeeder extends Seeder
      */
     public function run(): void
     {
+        /** @var PackageService $packageService */
+        $packageService = app(PackageService::class);
+
         if (config('dev.repositories')) {
-            app(PackageService::class)->changeToLocalRepository();
+            $packageService->changeToLocalRepository();
         }
+
+        foreach ($this->devPackages() as $package) {
+            $packageService->requirePackage($package);
+        }
+    }
+
+    private function devPackages(): array
+    {
+        return array_values(array_filter(array_map(
+            'trim',
+            explode(',', (string) config('dev.packages', ''))
+        )));
     }
 }

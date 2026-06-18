@@ -4,6 +4,7 @@ namespace Froxlor\Core\Models;
 
 use Exception;
 use Froxlor\Core\Observers\TenantUserObserver;
+use Froxlor\Core\Services\Traits\CanDelegatePermissions;
 use Froxlor\Core\Support\Resource;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -24,7 +25,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
 #[ObservedBy(TenantUserObserver::class)]
 class TenantUser extends Pivot
 {
-    use HasUlids;
+    use HasUlids, CanDelegatePermissions;
 
     public $timestamps = true;
 

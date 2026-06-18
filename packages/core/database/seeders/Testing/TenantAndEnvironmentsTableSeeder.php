@@ -13,7 +13,10 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
 {
 
     /**
-     * Run the database seeds.
+     * Seed stable environment fixtures for tenant and environment authorization tests.
+     *
+     * Each environment is attached to the first node so controller tests can exercise
+     * provisioning, node cleanup, environment user permissions, and resource usage logic.
      *
      * @return void
      */
@@ -51,10 +54,13 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
         $this->attachEnvToNode($env3, $node);
     }
 
+    /**
+     * Attach an environment to a node without running provisioning observers.
+     */
     private function attachEnvToNode(Environment $env, Node $node): void
     {
         $unixName = $node->latestUnixName;
-        $guid = $node->latestGuid;
+        $guid = $node->nextGuid;
 
         // connect environment with node (must be mode=main)
         $node->environments()->attach($env, [

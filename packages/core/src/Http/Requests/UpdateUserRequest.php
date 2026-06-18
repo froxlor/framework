@@ -3,6 +3,7 @@
 namespace Froxlor\Core\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -25,7 +26,7 @@ class UpdateUserRequest extends FormRequest
             'first_name' => ['sometimes', 'required'],
             'last_name' => ['sometimes', 'required'],
             'company_name' => ['sometimes', 'nullable'],
-            'email' => ['sometimes', 'required', 'email'],
+            'email' => ['sometimes', 'required', 'email', Rule::unique('users', 'email')->ignore($this->route('user'))],
             'password' => ['sometimes', 'nullable', 'min:8'],
             'tenant_id' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:tenants,id', 'required_with:role_id,plan_id'],
             'role_id' => ['sometimes', 'string', 'ulid', 'exists:roles,id', 'required_with:tenant_id'],

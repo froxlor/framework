@@ -11,7 +11,10 @@ use Illuminate\Database\Seeder;
 class TenantUsagesTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed fixture usage counters for tenant resource-limit scenarios.
+     *
+     * These records give feature tests a known starting point for resource accounting
+     * without forcing every test to recreate the same usage graph.
      *
      * @return void
      */

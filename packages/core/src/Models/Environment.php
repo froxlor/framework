@@ -3,8 +3,10 @@
 namespace Froxlor\Core\Models;
 
 use Froxlor\Core\Exceptions\UnknownEnvironmentUserException;
+use Froxlor\Core\Observers\EnvironmentObserver;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -30,6 +32,7 @@ use Illuminate\Support\Facades\DB;
  * @property Collection<EnvironmentUser> $users
  * @property Collection<EnvUsage> $envUsages
  */
+#[ObservedBy(EnvironmentObserver::class)]
 class Environment extends Model
 {
     use HasUlids, IsResource, HasPermissions;

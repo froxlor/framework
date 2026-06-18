@@ -2,6 +2,7 @@
 
 namespace Froxlor\Core\Http\Requests;
 
+use Froxlor\Core\Rules\ResourceModelType;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -33,7 +34,7 @@ class StoreResourceRequest extends FormRequest
             ],
             'name' => 'required|string',
             'description' => 'nullable|string',
-            'model_type' => 'required|string',
+            'model_type' => ['required', 'string', new ResourceModelType()],
             'type' => 'required|string|in:tenant,environment',
         ];
     }

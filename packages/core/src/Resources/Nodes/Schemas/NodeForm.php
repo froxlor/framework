@@ -46,7 +46,7 @@ class NodeForm
                     Forms\Components\TextInput::make('password')
                         ->label(trans('froxlor-core::generic.password')),
 
-                    Forms\Components\TextInput::make('sshkey')
+                    Forms\Components\TextInput::make('ssh_key')
                         ->label(trans('froxlor-core::generic.ssh_key')),
 
                     Forms\Components\Boolean::make('sudo')

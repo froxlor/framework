@@ -6,7 +6,6 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Resources\Nodes\Schemas\NodeForm;
 use Froxlor\Core\Resources\Nodes\Schemas\NodeView;
 use Froxlor\Core\Resources\Nodes\Tables\NodeTable;
-use Froxlor\Core\Services\Node\Adapter\Local;
 use Froxlor\UI\Resources\Resource;
 use Froxlor\UI\Schemas;
 use Froxlor\UI\Schemas\Schema;
@@ -22,7 +21,7 @@ class NodeResource extends Resource
             ->description(trans('froxlor-core::generic.show_resource_list', ['resource' => trans('froxlor-core::generic.nodes')]))
             ->fetch(route('api.nodes.index'))
             ->intendedRoute('resources.nodes.show', ['node' => '{id}'])
-            ->redirectFirst(fn() => Node::adapters() === [Local::class]) // FIXME: not working properly
+            ->redirectFirst(fn() => Node::query()->count() === 1)
             ->columns(NodeTable::columns())
             ->columnActions([
                 Tables\ColumnActions\Action::make('view')

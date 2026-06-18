@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api\Tenant\Environment;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\Tenant\Environment\StoreEnvironmentUserRequest;
 use Froxlor\Core\Http\Requests\UpdateUserRequest;
@@ -47,7 +49,7 @@ class UserController extends Controller
             // connect environment
             $user->environments()->attach($environment, ['role_id' => $env_role, 'plan_id' => $env_plan]);
             // build up validated data for others
-            $eventData = $request->validatedEvent();
+            $eventData = $this->validatedEventData($request);
             // throw event that resource was created and append validated data
             event(new ResourceCreated($user, $eventData));
 
@@ -76,6 +78,7 @@ class UserController extends Controller
         Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
 
         $user->update($request->validated());
+        event(new ResourceUpdated($user, $this->validatedEventData($request)));
 
         return Response::jsonResource($user->refresh());
     }
@@ -88,6 +91,7 @@ class UserController extends Controller
         Gate::authorize('tenantEnvDelete', [$user, $tenant, $environment]);
 
         $environment->users()->detach($user);
+        event(new ResourceDeleted($user, []));
 
         return response()->noContent();
     }

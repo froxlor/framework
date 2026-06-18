@@ -4,7 +4,6 @@ namespace Froxlor\Core\Http\Requests;
 
 use Froxlor\Core\Http\Requests\Abstract\FroxlorFormRequest;
 use Froxlor\Core\Models\Role;
-use Illuminate\Validation\Rule;
 
 class StoreRoleRequest extends FroxlorFormRequest
 {
@@ -25,7 +24,6 @@ class StoreRoleRequest extends FroxlorFormRequest
     {
         return [
             'name' => 'required|string',
-            'type' => ['string', Rule::in(['tenant', 'environment'])],
             'description' => 'string|nullable',
             'tenant_id' => 'nullable|string|ulid|exists:tenants,id',
         ];

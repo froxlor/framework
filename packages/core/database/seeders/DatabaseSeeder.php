@@ -4,9 +4,9 @@ namespace Froxlor\Core\Database\Seeders;
 
 use Froxlor\Core\Events\DatabaseSeeded;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\SeedProfile;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\App;
 
 class DatabaseSeeder extends Seeder
 {
@@ -17,14 +17,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // call required seeder classes
+        // call required package seeders
         $this->call($this->coreSeederClasses());
         Audit::log('The core seeder classes have been seeded.');
 
-        // call development seeder classes
-        if (App::environment() === 'local') {
-            $this->call($this->testingSeederClasses());
-            Audit::log('The development core seeder classes have been seeded.');
+        // call development/test fixture seeders
+        if (SeedProfile::includesDevelopmentData()) {
+            $this->call($this->fixtureSeederClasses());
+            Audit::log('The ' . SeedProfile::developmentDataLabel() . ' core seeder classes have been seeded.');
         }
 
         // notify other seeders
@@ -32,7 +32,9 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * All essential seeders for a minimal installation.
+     * All essential seeders required for a minimal production installation.
+     *
+     * @return array<class-string<Seeder>>
      */
     private function coreSeederClasses(): array
     {
@@ -45,15 +47,14 @@ class DatabaseSeeder extends Seeder
     }
 
     /**
-     * All seeders for test data and local development.
+     * All non-production fixture seeders used by local development and tests.
+     *
+     * @return array<class-string<Seeder>>
      */
-    private function testingSeederClasses(): array
+    private function fixtureSeederClasses(): array
     {
         return [
-            Testing\TenantAndUsersTableSeeder::class,
-            Testing\TenantAndEnvironmentsTableSeeder::class,
-            Testing\TenantUsagesTableSeeder::class,
-            // add more development resources connected to environments later here
+            Testing\DatabaseSeeder::class,
         ];
     }
 }

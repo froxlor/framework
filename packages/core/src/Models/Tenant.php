@@ -5,6 +5,7 @@ namespace Froxlor\Core\Models;
 use Froxlor\Core\Exceptions\UnknownTenantUserException;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -51,6 +52,18 @@ class Tenant extends Model
         return $this->hasMany(Environment::class);
     }
 
+    public function ownedNodes(): HasMany
+    {
+        return $this->hasMany(Node::class);
+    }
+
+    public function nodes(): BelongsToMany
+    {
+        return $this->belongsToMany(Node::class)
+            ->withPivot('inheritable')
+            ->withTimestamps();
+    }
+
     public function plan(): BelongsTo
     {
         return $this->belongsTo(Plan::class);
@@ -90,6 +103,47 @@ class Tenant extends Model
         return $this->hasMany(Tenant::class, 'parent_tenant_id', 'id');
     }
 
+    /**
+     * Limit the query to tenants without a parent tenant.
+     *
+     * Root tenants are the top-level entry points for tenant trees and are
+     * created during installation/bootstrap rather than through child-tenant
+     * management flows.
+     */
+    public function scopeRoot(Builder $query): Builder
+    {
+        return $query->whereNull('parent_tenant_id');
+    }
+
+    /**
+     * Limit the query to direct children of the given tenant.
+     */
+    public function scopeChildrenOf(Builder $query, Tenant $tenant): Builder
+    {
+        return $query->where('parent_tenant_id', $tenant->id);
+    }
+
+    /**
+     * Limit the query to tenants contained in the given tenant tree.
+     *
+     * This currently resolves the tree in PHP because tenant trees are expected
+     * to be shallow in normal control-panel usage. The method keeps callers away
+     * from duplicating hierarchy traversal and can later be replaced internally
+     * by a recursive SQL implementation if needed.
+     */
+    public function scopeInTreeOf(Builder $query, Tenant $tenant, bool $includeSelf = true): Builder
+    {
+        return $query->whereIn('id', $tenant->descendantIds($includeSelf));
+    }
+
+    /**
+     * Return all descendants of this tenant in breadth-first order.
+     *
+     * The returned collection contains children, grandchildren, and deeper
+     * descendants, but never the current tenant itself.
+     *
+     * @return Collection<int, Tenant>
+     */
     public function allSubTenants(): Collection
     {
         $all = new Collection();
@@ -102,19 +156,29 @@ class Tenant extends Model
         return $all;
     }
 
-    public function getSubTenantsIds(bool $include_myself = false): array
+    /**
+     * Return all descendant tenant IDs.
+     *
+     * @param bool $includeSelf Include the current tenant ID in the returned
+     * list. This is useful for queries that should operate on the whole tree,
+     * including its root tenant.
+     * @return array<int, string>
+     */
+    public function descendantIds(bool $includeSelf = false): array
     {
-        $my_tenants = $this->allSubTenants()->pluck('id');
-        if ($include_myself) {
-            $my_tenants->add($this->id);
+        $tenantIds = $this->allSubTenants()->pluck('id');
+
+        if ($includeSelf) {
+            $tenantIds->prepend($this->id);
         }
-        return $my_tenants->toArray();
+
+        return $tenantIds->values()->all();
     }
 
     public function getAllUsers()
     {
         return User::whereHas('tenants', function ($q) {
-            $q->whereIn('tenants.id', $this->getSubTenantsIds(true));
+            $q->whereIn('tenants.id', $this->descendantIds(true));
         })->with(['tenants']);
     }
 
@@ -126,13 +190,43 @@ class Tenant extends Model
         return $this->belongsTo(Tenant::class, 'parent_tenant_id', 'id');
     }
 
-    public function isParentToTenant(Tenant $tenant): bool
+    /**
+     * Check whether this tenant is an ancestor of the given tenant.
+     */
+    public function isAncestorOf(Tenant $tenant): bool
     {
-        $my_tenant = $this->getSubTenantIds();
-        if (in_array($tenant->id, $my_tenant)) {
+        return in_array($tenant->id, $this->descendantIds(), true);
+    }
+
+    /**
+     * Check whether this tenant is below the given tenant in the tenant tree.
+     */
+    public function isDescendantOf(Tenant $tenant): bool
+    {
+        return $tenant->isAncestorOf($this);
+    }
+
+    /**
+     * Check whether this tenant tree contains the given tenant.
+     *
+     * @param Tenant $tenant Tenant to look for.
+     * @param bool $includeSelf Treat the current tenant as part of its own tree.
+     */
+    public function containsTenant(Tenant $tenant, bool $includeSelf = false): bool
+    {
+        if ($includeSelf && $this->id === $tenant->id) {
             return true;
         }
-        return false;
+
+        return $this->isAncestorOf($tenant);
+    }
+
+    /**
+     * Backwards-compatible wrapper for older call sites.
+     */
+    public function isParentToTenant(Tenant $tenant): bool
+    {
+        return $this->isAncestorOf($tenant);
     }
 
     public function usersCount(): Attribute
@@ -220,6 +314,12 @@ class Tenant extends Model
             ['key' => $basePermKey . '.users.store', 'name' => 'Create ' . $basePermKey . ' users'],
             ['key' => $basePermKey . '.users.update', 'name' => 'Update ' . $basePermKey . ' users'],
             ['key' => $basePermKey . '.users.destroy', 'name' => 'Delete ' . $basePermKey . ' users'],
+            // tenant nodes
+            ['key' => $basePermKey . '.nodes.*', 'name' => 'Manage ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.index', 'name' => 'View ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.store', 'name' => 'Create ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.update', 'name' => 'Update ' . $basePermKey . ' nodes'],
+            ['key' => $basePermKey . '.nodes.destroy', 'name' => 'Delete ' . $basePermKey . ' nodes'],
         ];
     }
 

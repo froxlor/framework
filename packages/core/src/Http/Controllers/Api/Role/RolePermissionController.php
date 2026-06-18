@@ -7,6 +7,7 @@ use Froxlor\Core\Models\Permission;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -20,29 +21,30 @@ class RolePermissionController extends Controller
      */
     public function index(Request $request, Role $role)
     {
-        //Gate::authorize('roleViewAny', [Permission::class, $role]);
+        Gate::authorize('roleViewAny', [Permission::class, $role]);
 
         if ($request->query('ids_only', false)) {
-            return Response::jsonResourceCollection($role->permissions()->pluck('permissions.id'));
+            return response()->json([
+                'data' => $role->permissions()->pluck('permissions.id'),
+            ]);
         }
 
-        return Response::jsonResourceCollection($role->permissions());
-/*
         $allPermissions = Permission::query()->orderBy('key')->get();
-        $rolePermissions = $role->permissions()->select(['permissions.id'])->get()->mapWithKeys(function ($item) {
-            return [$item['id'] => (bool)$item['pivot']['inheritable']];
-        })->toArray();
+        $rolePermissions = $role->permissions()
+            ->select(['permissions.id'])
+            ->get()
+            ->mapWithKeys(fn(Permission $permission) => [
+                $permission->id => (bool)$permission->pivot->inheritable,
+            ]);
 
         $permissions = $allPermissions->map(function ($permission) use ($rolePermissions) {
-            $permission->assigned = array_key_exists($permission->id, $rolePermissions);
-            $permission->inheritable = $rolePermissions[$permission->id] ?? false;
+            $permission->assigned = $rolePermissions->has($permission->id);
+            $permission->inheritable = $rolePermissions->get($permission->id, false);
+
             return $permission;
         });
 
-        return response()->json([
-            'data' => $permissions
-        ]);
-*/
+        return JsonResource::collection($permissions);
     }
 
     /**
@@ -53,15 +55,17 @@ class RolePermissionController extends Controller
         Gate::authorize('roleCreate', [Permission::class, $role]);
 
         $data = $request->validate([
-            'permission_id' => 'required|exists:permissions,id',
+            'permission_id' => 'required|string|ulid|exists:permissions,id',
             'inheritable' => 'boolean',
         ]);
 
         $permission = Permission::findOrFail($data['permission_id']);
 
+        abort_unless($request->user()->canDelegatePermission($permission->key), 403);
+
         $role->permissions()->attach($permission, ['inheritable' => $data['inheritable'] ?? false]);
 
-        return Response::jsonResource($role->permissions());
+        return Response::jsonResourceCollection($role->permissions());
     }
 
     /**
@@ -73,6 +77,6 @@ class RolePermissionController extends Controller
 
         $role->permissions()->detach($permission);
 
-        return Response::jsonResource($role->permissions());
+        return Response::jsonResourceCollection($role->permissions());
     }
 }

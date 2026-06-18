@@ -3,16 +3,22 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
+use Froxlor\Core\Http\Controllers\Concerns\NormalizesNodeProperties;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreNodeRequest;
 use Froxlor\Core\Http\Requests\UpdateNodeRequest;
 use Froxlor\Core\Jobs\Node\ExploreNode;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
 use Illuminate\Support\Facades\Gate;
 
 class NodeController extends Controller
 {
+    use NormalizesNodeProperties;
+
     /**
      * Display a listing of the resource.
      */
@@ -32,10 +38,25 @@ class NodeController extends Controller
 
         // get validated data only for ourselves
         $nodeData = $request->validatedResource();
+        $inheritable = (bool)($nodeData['inheritable'] ?? false);
+        unset($nodeData['inheritable']);
+        $nodeData = $this->normalizeNodeProperties($nodeData);
+
+        $tenant = null;
+        if (!empty($nodeData['tenant_id'])) {
+            $tenant = Tenant::query()->findOrFail($nodeData['tenant_id']);
+            Gate::authorize('view', $tenant);
+        }
+
         // create resource
         $node = Node::query()->create($nodeData);
+        if ($tenant !== null) {
+            $node->tenants()->syncWithoutDetaching([
+                $tenant->id => ['inheritable' => $inheritable],
+            ]);
+        }
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($node, $eventData));
         // run explore-node job
@@ -62,7 +83,8 @@ class NodeController extends Controller
     {
         Gate::authorize('update', $node);
 
-        $node->update($request->validated());
+        $node->update($this->normalizeNodeProperties($request->validated(), $node));
+        event(new ResourceUpdated($node, $this->validatedEventData($request)));
 
         return Response::jsonResource($node);
     }
@@ -75,7 +97,9 @@ class NodeController extends Controller
         Gate::authorize('delete', $node);
 
         $node->delete();
+        event(new ResourceDeleted($node, []));
 
         return response()->noContent();
     }
+
 }

@@ -3,6 +3,8 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Events\Api\ResourceCreated;
+use Froxlor\Core\Events\Api\ResourceDeleted;
+use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StorePlanRequest;
 use Froxlor\Core\Http\Requests\UpdatePlanRequest;
@@ -34,7 +36,7 @@ class PlanController extends Controller
         // create resource
         $plan = Plan::query()->create($planData);
         // build up validated data for others
-        $eventData = $request->validatedEvent();
+        $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($plan, $eventData));
 
@@ -60,6 +62,7 @@ class PlanController extends Controller
         Gate::authorize('update', $plan);
 
         $plan->update($request->validated());
+        event(new ResourceUpdated($plan, $this->validatedEventData($request)));
 
         return Response::jsonResource($plan->refresh());
     }
@@ -72,6 +75,7 @@ class PlanController extends Controller
         Gate::authorize('delete', $plan);
 
         $plan->delete();
+        event(new ResourceDeleted($plan, []));
 
         return response()->noContent();
     }

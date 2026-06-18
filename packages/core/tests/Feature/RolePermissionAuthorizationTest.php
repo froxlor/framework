@@ -1,0 +1,142 @@
+<?php
+
+namespace Tests\Feature;
+
+use Froxlor\Core\Models\Permission;
+use Froxlor\Core\Models\Role;
+use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Models\User;
+use Tests\TestCase;
+
+class RolePermissionAuthorizationTest extends TestCase
+{
+    public function test_super_admin_can_manage_global_role_permissions(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+
+        $role->permissions()->detach($permission);
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/roles/' . $role->id . '/permissions')
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/roles/' . $role->id . '/permissions', [
+                'permission_id' => $permission->id,
+                'inheritable' => false,
+            ])
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertOk();
+    }
+
+    public function test_role_permission_index_lists_assigned_and_unassigned_permissions(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $assignedPermission = Permission::query()->where('key', 'users.index')->firstOrFail();
+        $unassignedPermission = Permission::query()->where('key', 'users.store')->firstOrFail();
+
+        $role->permissions()->syncWithoutDetaching([
+            $assignedPermission->id => ['inheritable' => true],
+        ]);
+        $role->permissions()->detach($unassignedPermission);
+
+        $permissions = collect($this->actingAs($user, 'sanctum')
+            ->getJson('/api/roles/' . $role->id . '/permissions')
+            ->assertOk()
+            ->json('data'));
+
+        $assigned = $permissions->firstWhere('id', $assignedPermission->id);
+        $unassigned = $permissions->firstWhere('id', $unassignedPermission->id);
+
+        $this->assertSame($assignedPermission->key, $assigned['key']);
+        $this->assertTrue($assigned['assigned']);
+        $this->assertTrue($assigned['inheritable']);
+        $this->assertSame($unassignedPermission->key, $unassigned['key']);
+        $this->assertFalse($unassigned['assigned']);
+        $this->assertFalse($unassigned['inheritable']);
+    }
+
+    public function test_tenant_admin_cannot_manage_global_role_permissions(): void
+    {
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/roles/' . $role->id . '/permissions')
+            ->assertForbidden();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/roles/' . $role->id . '/permissions', [
+                'permission_id' => $permission->id,
+                'inheritable' => false,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertForbidden();
+    }
+
+    public function test_user_cannot_assign_permission_without_inheritable_delegation(): void
+    {
+        $user = User::query()->create([
+            'first_name' => 'Limited',
+            'last_name' => 'SysAdmin',
+            'email' => 'limited-sysadmin-' . str()->ulid() . '@froxlor.test',
+            'password' => 'secret-password',
+        ]);
+        $userRole = Role::query()->create([
+            'name' => 'Limited SysAdmin ' . str()->ulid(),
+        ]);
+        $targetRole = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+        $wildcardPermission = Permission::query()->where('key', '*')->firstOrFail();
+
+        $targetRole->permissions()->detach($permission);
+        $userRole->permissions()->attach($wildcardPermission, ['inheritable' => false]);
+        $user->roles()->attach($userRole);
+
+        $this->assertTrue($user->hasPermission('roles.permissions.store'));
+        $this->assertFalse($user->canDelegatePermission($permission->key));
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/roles/' . $targetRole->id . '/permissions', [
+                'permission_id' => $permission->id,
+                'inheritable' => false,
+            ])
+            ->assertForbidden();
+    }
+
+    public function test_global_role_permission_route_does_not_manage_tenant_roles(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $role = Role::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Tenant Role Permission Policy Test ' . str()->ulid(),
+        ]);
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/roles/' . $role->id . '/permissions')
+            ->assertForbidden();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/roles/' . $role->id . '/permissions', [
+                'permission_id' => $permission->id,
+                'inheritable' => false,
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertForbidden();
+    }
+}

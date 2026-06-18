@@ -30,7 +30,7 @@ class Resource
             throw new InvalidResourceException("Given resource does not implement " . IsResource::class);
         }
         $usage = $tenant->tenantUsages()
-            ->where('resource_key', '=', is_string($resource) ? $resource : $resource::getResourceKey());
+            ->where('resource_key', '=', self::resourceKey($resource));
         if ($user) {
             $usage->where('user_id', $user->id);
         }
@@ -50,7 +50,7 @@ class Resource
             throw new InvalidResourceException("Given resource does not implement " . IsResource::class);
         }
         $usage = $environment->envUsages()
-            ->where('resource_key', '=', is_string($resource) ? $resource : $resource::getResourceKey());
+            ->where('resource_key', '=', self::resourceKey($resource));
         if ($user) {
             $usage->where('user_id', $user->id);
         }
@@ -76,7 +76,7 @@ class Resource
         if (empty($user)) {
             $user = auth()->user();
         }
-        if ($tenant->userHasResourceAvailable($user, $resource::getResourceKey())) {
+        if (self::hasUsageAvailable($tenant, $resource, $user)) {
             return $tenant->tenantUsages()->create([
                 'user_id' => $user->id,
                 'created_at' => Carbon::now(),
@@ -86,6 +86,27 @@ class Resource
             ]);
         }
         throw new ResourceLimitException("Resource limit exceeded (" . $resource::getResourceKey() . ")");
+    }
+
+    /**
+     * @throws InvalidResourceException
+     * @throws UnknownTenantUserException
+     */
+    public static function hasUsageAvailable(Tenant $tenant, string|Model $resource, User $user): bool
+    {
+        if (!is_string($resource) && !in_array(IsResource::class, class_uses_recursive($resource))) {
+            throw new InvalidResourceException("Given resource does not implement " . IsResource::class);
+        }
+
+        try {
+            return $tenant->userHasResourceAvailable($user, self::resourceKey($resource));
+        } catch (UnknownTenantUserException $exception) {
+            if (!self::userControlsTenant($user, $tenant)) {
+                throw $exception;
+            }
+
+            return self::tenantPlanHasResourceAvailable($tenant, $resource);
+        }
     }
 
     /**
@@ -152,5 +173,68 @@ class Resource
             ->first();
         $envUsage->delete();
         return true;
+    }
+
+    public static function resourceKey(string|Model $resource): string
+    {
+        if (is_string($resource) && class_exists($resource) && in_array(IsResource::class, class_uses_recursive($resource))) {
+            return $resource::getResourceKey();
+        }
+
+        return is_string($resource) ? $resource : $resource::getResourceKey();
+    }
+
+    /**
+     * Resolve the tenant context a user acts from when consuming resources for a target tenant.
+     *
+     * Returns the target tenant if the user belongs to it directly, otherwise the first user tenant that owns the
+     * target tenant as a subtenant. Returns null when the user cannot act for the target tenant.
+     */
+    public static function actingTenantFor(User $user, Tenant $targetTenant): ?Tenant
+    {
+        /** @var \Illuminate\Support\Collection<int, Tenant> $tenants */
+        $tenants = $user->tenants()->get();
+
+        /** @var Tenant|null $directTenant */
+        $directTenant = $tenants->firstWhere('id', $targetTenant->id);
+        if ($directTenant !== null) {
+            return $directTenant;
+        }
+
+        /** @var Tenant|null $parentTenant */
+        $parentTenant = $tenants->first(
+            fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->descendantIds(), true)
+        );
+
+        return $parentTenant;
+    }
+
+    private static function tenantPlanHasResourceAvailable(Tenant $tenant, string|Model $resource): bool
+    {
+        $resourceToCheck = $tenant->plan?->resources()
+            ->where('key', self::resourceKey($resource))
+            ->first();
+
+        if (empty($resourceToCheck)) {
+            return false;
+        }
+
+        $max = $resourceToCheck->pivot->limit;
+        if (empty($max)) {
+            return false;
+        }
+
+        if ($max == -1) {
+            return true;
+        }
+
+        return self::getUsage($tenant, $resourceToCheck->model_type) < $max;
+    }
+
+    private static function userControlsTenant(User $user, Tenant $targetTenant): bool
+    {
+        return $user->tenants()
+            ->get()
+            ->contains(fn(Tenant $tenant) => in_array($targetTenant->id, $tenant->descendantIds(), true));
     }
 }

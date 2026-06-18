@@ -9,7 +9,11 @@ use Illuminate\Database\Seeder;
 class NodesTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed the default node type settings and the initial root node.
+     *
+     * The root node is baseline data because environments need at least one node target.
+     * Local installations use the in-process adapter, while remote development setups can
+     * opt into the remote adapter via `dev.node=remote`.
      *
      * @return void
      * @throws Exception
@@ -34,6 +38,9 @@ class NodesTableSeeder extends Seeder
         $rootNode->addSetting('node.last_guid_number', 9999, null, 'integer', ['visible' => false]);
     }
 
+    /**
+     * Create the default local node used by production bootstrap and local tests.
+     */
     private function localNode(): Node
     {
         return Node::query()->create([
@@ -45,6 +52,9 @@ class NodesTableSeeder extends Seeder
         ]);
     }
 
+    /**
+     * Create a remote-adapter node for development stacks that exercise remote provisioning.
+     */
     private function remoteNode(): Node
     {
         return Node::query()->create([

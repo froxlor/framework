@@ -3,6 +3,7 @@
 namespace Froxlor\Core\Database\Seeders;
 
 use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Role;
@@ -14,7 +15,11 @@ class PlansAndResourcesTableSeeder extends Seeder
 {
 
     /**
-     * Run the database seeds.
+     * Seed the baseline resource catalog and default plans.
+     *
+     * Resources are package-owned metadata and are therefore part of production seeding.
+     * The default plans provide useful bootstrap assignments for the root tenant and the
+     * local/testing fixture graph.
      *
      * @return void
      */
@@ -24,6 +29,7 @@ class PlansAndResourcesTableSeeder extends Seeder
         self::createPlanWithResources('Unlimited', [
             ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => -1],
             ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => -1],
+            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => -1],
             ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => -1],
             ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => -1],
             ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => -1],
@@ -34,6 +40,7 @@ class PlansAndResourcesTableSeeder extends Seeder
         self::createPlanWithResources('Everything 10', [
             ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => 10],
             ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => 10],
+            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => 10],
             ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => 10],
             ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => 10],
             ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => 10],
@@ -48,6 +55,13 @@ class PlansAndResourcesTableSeeder extends Seeder
         ]);
     }
 
+    /**
+     * Create a plan and attach resource limits to it.
+     *
+     * @param string $string Human readable plan name.
+     * @param array<int, array{key: string, name: string, type?: string, model_type: class-string, limit: int}> $resources
+     * @param string|null $tenant_id Tenant owner for tenant-specific plans, or null for global plans.
+     */
     public static function createPlanWithResources(string $string, array $resources, ?string $tenant_id = null): Plan
     {
         /** @var Plan $role */

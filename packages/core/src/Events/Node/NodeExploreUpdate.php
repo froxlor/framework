@@ -15,6 +15,8 @@ class NodeExploreUpdate
     public function __construct(public Node $node)
     {
         //
-        Audit::log('event ' . __CLASS__ . ' triggered');
+        Audit::log('node "' . $node->name . '" exploration updated', $node->tenant, null, [
+            'node_id' => $node->id,
+        ]);
     }
 }

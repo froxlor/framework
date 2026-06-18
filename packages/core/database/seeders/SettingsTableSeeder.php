@@ -2,13 +2,17 @@
 
 namespace Froxlor\Core\Database\Seeders;
 
-use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\Setting;
 use Illuminate\Database\Seeder;
 
 class SettingsTableSeeder extends Seeder
 {
-    protected array $testSettings = [
+    /**
+     * Baseline settings required for every froxlor installation.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    protected array $settings = [
         ['category' => 'auditlog', 'key' => 'enabled', 'value' => true, 'default_value' => true, 'type' => 'boolean'],
         ['category' => 'api', 'key' => 'pagination_limit', 'value' => 15, 'default_value' => 15, 'type' => 'integer'],
     ];
@@ -21,7 +25,7 @@ class SettingsTableSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach ($this->testSettings as $setting) {
+        foreach ($this->settings as $setting) {
             Setting::addFromArray($setting);
         }
     }
