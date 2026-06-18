@@ -2,17 +2,17 @@
 # Exit on error
 set -e
 
-JAIL_USER="{{ $userName }}"
+JAILUSER="{{ $userName }}"
 JAILBASE="{{ $userRootDir }}"
 HOMEDIR="{{ $userHomeDir }}"
 GUID="{{ $userGuid }}"
 
-echo "Creating jail for user $JAIL_USER at $JAILBASE"
+echo "Creating jail for user $JAILUSER at $JAILBASE"
 
-if getent group "$JAIL_USER" >/dev/null; then
-    EXISTING_GID="$(getent group "$JAIL_USER" | cut -d: -f3)"
+if getent group "$JAILUSER" >/dev/null; then
+    EXISTING_GID="$(getent group "$JAILUSER" | cut -d: -f3)"
     if [ "$EXISTING_GID" != "$GUID" ]; then
-        echo "Group $JAIL_USER already exists with GID $EXISTING_GID, expected $GUID" >&2
+        echo "Group $JAILUSER already exists with GID $EXISTING_GID, expected $GUID" >&2
         exit 1
     fi
 elif getent group "$GUID" >/dev/null; then
@@ -21,10 +21,10 @@ elif getent group "$GUID" >/dev/null; then
     exit 1
 fi
 
-if getent passwd "$JAIL_USER" >/dev/null; then
-    EXISTING_UID="$(getent passwd "$JAIL_USER" | cut -d: -f3)"
+if getent passwd "$JAILUSER" >/dev/null; then
+    EXISTING_UID="$(getent passwd "$JAILUSER" | cut -d: -f3)"
     if [ "$EXISTING_UID" != "$GUID" ]; then
-        echo "User $JAIL_USER already exists with UID $EXISTING_UID, expected $GUID" >&2
+        echo "User $JAILUSER already exists with UID $EXISTING_UID, expected $GUID" >&2
         exit 1
     fi
 elif getent passwd "$GUID" >/dev/null; then
@@ -38,19 +38,19 @@ mkdir -p "$JAILBASE"
 chown root:root "$JAILBASE"
 chmod 755 "$JAILBASE"
 
-if ! getent group "$JAIL_USER" >/dev/null; then
-    groupadd -g "$GUID" "$JAIL_USER"
+if ! getent group "$JAILUSER" >/dev/null; then
+    groupadd -g "$GUID" "$JAILUSER"
 fi
 
-if ! getent passwd "$JAIL_USER" >/dev/null; then
-    useradd -u "$GUID" -g "$JAIL_USER" -d "$HOMEDIR" -m -s /bin/bash "$JAIL_USER"
+if ! getent passwd "$JAILUSER" >/dev/null; then
+    useradd -u "$GUID" -g "$JAILUSER" -d "$HOMEDIR" -m -s /bin/bash "$JAILUSER"
 fi
 
 # Initialize jail with basic shells, editors, netutils and transfer tools.
 jk_init -j "$JAILBASE" basicshell jk_lsh editors netutils sftp scp rsync
 
 # Create user inside jail
-jk_jailuser -m -j "$JAILBASE" "$JAIL_USER"
+jk_jailuser -m -j "$JAILBASE" "$JAILUSER"
 
 # Mount a dedicated proc filesystem for the jail.
 if ! mountpoint -q "$JAILBASE/proc"; then
@@ -69,5 +69,5 @@ mkdir -p "$JAILBASE/tmp"
 chmod 1777 "$JAILBASE/tmp"
 mkdir -p "$HOMEDIR/web"
 mkdir -p "$HOMEDIR/logs"
-chown -R "$JAIL_USER:$JAIL_USER" "$HOMEDIR/web"
-chown -R "$JAIL_USER:$JAIL_USER" "$HOMEDIR/logs"
+chown -R "$JAILUSER:$JAILUSER" "$HOMEDIR/web"
+chown -R "$JAILUSER:$JAILUSER" "$HOMEDIR/logs"

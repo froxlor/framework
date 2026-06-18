@@ -71,12 +71,12 @@ class DeleteEnvironment implements ShouldQueue
     {
         return [
             'JAILBASE=' . escapeshellarg(rtrim($envBaseDir, '/')),
-            'JAIL_USER=' . escapeshellarg($unixName),
+            'JAILUSER=' . escapeshellarg($unixName),
             'if mountpoint -q "$JAILBASE/dev/pts"; then umount -l "$JAILBASE/dev/pts"; fi',
             'if mountpoint -q "$JAILBASE/proc"; then umount -l "$JAILBASE/proc"; fi',
-            'if getent passwd "$JAIL_USER" >/dev/null; then pkill -u "$JAIL_USER" || true; fi',
-            'if getent passwd "$JAIL_USER" >/dev/null; then userdel "$JAIL_USER"; fi',
-            'if getent group "$JAIL_USER" >/dev/null; then groupdel "$JAIL_USER"; fi',
+            'if getent passwd "$JAILUSER" >/dev/null; then pkill -u "$JAILUSER" || true; fi',
+            'if getent passwd "$JAILUSER" >/dev/null; then userdel "$JAILUSER"; fi',
+            'if getent group "$JAILUSER" >/dev/null; then groupdel "$JAILUSER"; fi',
             'if [ -n "$JAILBASE" ] && [ "$JAILBASE" != "/" ] && [ -d "$JAILBASE" ]; then rm -rf -- "$JAILBASE"; fi',
         ];
     }
