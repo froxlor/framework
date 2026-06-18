@@ -2,6 +2,7 @@
 
 namespace Froxlor\Core\Models;
 
+use Froxlor\Core\Services\Traits\CanDelegatePermissions;
 use Froxlor\Core\Support\Resource;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,7 +21,7 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  */
 class EnvironmentUser extends Pivot
 {
-    use HasUlids;
+    use HasUlids, CanDelegatePermissions;
 
     public $timestamps = true;
 

@@ -32,7 +32,6 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('roles/permissions', Api\PermissionController::class)->only(['index'])->names([
         'index' => 'roles.permissions.available',
     ]);
-    Route::apiResource('permissions', Api\PermissionController::class);
     Route::apiResource('roles', Api\RoleController::class);
     Route::apiResource('roles.permissions', Api\Role\RolePermissionController::class)->only(['index', 'store', 'destroy']);
     Route::apiResource('roles.users', Api\Role\UserController::class)->only(['index']);

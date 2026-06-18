@@ -5,6 +5,7 @@ namespace Froxlor\Core\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\CanDelegatePermissions;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -40,7 +41,7 @@ use Laravel\Sanctum\HasApiTokens;
 class User extends Authenticatable
 {
     /** @use HasFactory<\Froxlor\Core\Database\Factories\UserFactory> */
-    use HasFactory, HasUlids, Notifiable, HasApiTokens, IsResource, HasPermissions, SoftDeletes;
+    use HasFactory, HasUlids, Notifiable, HasApiTokens, IsResource, HasPermissions, CanDelegatePermissions, SoftDeletes;
 
     protected $guarded = [];
 
