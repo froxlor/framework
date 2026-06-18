@@ -13,7 +13,11 @@ use Illuminate\Database\Seeder;
 class TenantAndUsersTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed stable tenant and user fixtures for authorization tests.
+     *
+     * The fixed actors model the important access cases: a root tenant with the bootstrap
+     * super-admin, a direct child tenant administered by `dev2@froxlor.org`, and a nested
+     * subtenant administered by `dev3@froxlor.org`.
      *
      * @return void
      */

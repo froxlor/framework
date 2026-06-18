@@ -11,7 +11,11 @@ use Illuminate\Database\Seeder;
 class RolesAndPermissionsTableSeeder extends Seeder
 {
     /**
-     * Run the database seeds.
+     * Seed model-defined permissions and baseline global roles.
+     *
+     * Permissions are discovered from core models using `HasPermissions`; they are not
+     * intended to be created through API CRUD. The Super-Admin role receives `*` with an
+     * inheritable pivot so the bootstrap user can delegate every permission.
      *
      * @return void
      */
@@ -47,6 +51,9 @@ class RolesAndPermissionsTableSeeder extends Seeder
         ]);
     }
 
+    /**
+     * Create all permissions exposed by a core model that uses `HasPermissions`.
+     */
     private static function createPermissions(string $modelName): void
     {
         $modelFQCN = "\\Froxlor\\Core\\Models\\" . $modelName;
@@ -61,6 +68,12 @@ class RolesAndPermissionsTableSeeder extends Seeder
         }
     }
 
+    /**
+     * Create a global role and attach permission keys with optional inheritance metadata.
+     *
+     * @param string $string Human readable role name.
+     * @param array<int, array{key: string, inheritable?: bool}> $permissionKeys
+     */
     public static function createRoleWithPermissions(string $string, array $permissionKeys): Role
     {
         /** @var Role $role */

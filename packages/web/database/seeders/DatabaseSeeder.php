@@ -3,9 +3,9 @@
 namespace Froxlor\Web\Database\Seeders;
 
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\SeedProfile;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\App;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,22 +16,32 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // call required seeder classes
+        // call required package seeders
         $this->call($this->seederClasses());
         Audit::log('The web seeder classes have been seeded.');
 
-        // call development seeder classes
-        if (App::environment() === 'local') {
+        // call development/test fixture seeders
+        if (SeedProfile::includesDevelopmentData()) {
             $this->call($this->testingSeederClasses());
-            Audit::log('The development web seeder classes have been seeded.');
+            Audit::log('The ' . SeedProfile::developmentDataLabel() . ' web seeder classes have been seeded.');
         }
     }
 
+    /**
+     * All essential seeders required for a minimal production installation.
+     *
+     * @return array<class-string<Seeder>>
+     */
     private function seederClasses(): array
     {
         return [];
     }
 
+    /**
+     * All non-production fixture seeders used by local development and tests.
+     *
+     * @return array<class-string<Seeder>>
+     */
     private function testingSeederClasses(): array
     {
         return [
