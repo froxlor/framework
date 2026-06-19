@@ -86,6 +86,11 @@ jobs:
             echo "DEV_SEED_DEVELOPMENT_DATA=true"
           } >> .env
 
+      - name: Wait for database
+        working-directory: framework
+        run: |
+          docker compose -f docker-compose.ci.yml exec -T db mariadb-admin ping -h localhost -uroot -proot --wait=60
+
       - name: Fresh database with seeders
         working-directory: framework
         run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan migrate:fresh --seed --force
