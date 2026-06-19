@@ -1,0 +1,38 @@
+services:
+  froxlor:
+    image: hub.froxlor.io/froxlor/froxlor:latest
+    privileged: true
+    pid: "host"
+    depends_on:
+      - db
+      - redis
+    env_file:
+      - ../froxlor/.env
+    volumes:
+      - ../froxlor:/var/www/html/froxlor
+      - ../framework:/var/www/html/framework
+      - environments:/srv/environments
+    networks:
+      - internal
+
+  db:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: froxlor
+      MYSQL_USER: froxlor
+      MYSQL_PASSWORD: froxlor
+    networks:
+      - internal
+
+  redis:
+    image: redis:latest
+    networks:
+      - internal
+
+volumes:
+  environments:
+
+networks:
+  internal:
+    driver: bridge

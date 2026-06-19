@@ -1,0 +1,75 @@
+name: Framework Package Tests
+
+on:
+  push:
+    branches: [main, "feature/**"]
+  pull_request:
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout framework
+        uses: actions/checkout@v4
+        with:
+          path: framework
+
+      - name: Checkout froxlor app
+        uses: actions/checkout@v4
+        with:
+          repository: froxlor/froxlor
+          path: froxlor
+
+      - name: Prepare Laravel env
+        working-directory: froxlor
+        run: |
+          cp .env.example .env
+          {
+            echo "APP_ENV=testing"
+            echo "APP_KEY=base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            echo "APP_DEBUG=true"
+            echo "APP_URL=http://localhost"
+            echo "DB_CONNECTION=mysql"
+            echo "DB_HOST=db"
+            echo "DB_PORT=3306"
+            echo "DB_DATABASE=froxlor"
+            echo "DB_USERNAME=froxlor"
+            echo "DB_PASSWORD=froxlor"
+            echo "CACHE_STORE=array"
+            echo "QUEUE_CONNECTION=sync"
+            echo "SESSION_DRIVER=array"
+            echo "MAIL_MAILER=array"
+            echo "DEV_NODE=local"
+            echo "DEV_EMAIL=admin@froxlor.test"
+            echo "DEV_FIRST_NAME=Admin"
+            echo "DEV_LAST_NAME=User"
+            echo "DEV_PASSWORD=secret-password"
+            echo "DEV_SEED_DEVELOPMENT_DATA=true"
+          } >> .env
+
+      - name: Use local framework checkout
+        working-directory: froxlor
+        run: |
+          php -r '$file = "composer.json"; $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR); $json["repositories"] = [["name" => "framework", "type" => "path", "url" => "../framework", "options" => ["reference" => "config", "symlink" => true]]]; file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);'
+
+      - name: Start docker stack
+        run: docker compose -f framework/docker-compose.ci.yml up -d
+
+      - name: Install dependencies
+        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor composer update froxlor/framework --with-dependencies --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
+
+      - name: Fresh database with seeders
+        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan migrate:fresh --seed --force
+
+      - name: Run tests
+        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test
+
+      - name: Docker logs on failure
+        if: failure()
+        run: docker compose -f framework/docker-compose.ci.yml logs --no-color
+
+      - name: Stop docker stack
+        if: always()
+        run: docker compose -f framework/docker-compose.ci.yml down -v --remove-orphans
