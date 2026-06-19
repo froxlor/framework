@@ -7,10 +7,10 @@ services:
       - db
       - redis
     env_file:
-      - ../froxlor/.env
+      - ${FROXLOR_APP_DIR:-../froxlor}/.env
     volumes:
-      - ../froxlor:/var/www/html/froxlor
-      - ./:/var/www/html/framework
+      - ${FROXLOR_APP_DIR:-../froxlor}:/var/www/html/froxlor
+      - ${FROXLOR_FRAMEWORK_DIR:-.}:/var/www/html/framework
       - environments:/srv/environments
     networks:
       - internal

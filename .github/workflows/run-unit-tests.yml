@@ -9,6 +9,9 @@ jobs:
   core-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      FROXLOR_APP_DIR: ${{ github.workspace }}/froxlor
+      FROXLOR_FRAMEWORK_DIR: ${{ github.workspace }}/framework
 
     steps:
       - name: Checkout framework
@@ -53,6 +56,13 @@ jobs:
         working-directory: froxlor
         run: |
           php -r '$file = "composer.json"; $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR); $json["repositories"] = [["name" => "framework", "type" => "path", "url" => "../framework", "options" => ["reference" => "config", "symlink" => true]]]; file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);'
+
+      - name: Verify CI paths
+        run: |
+          pwd
+          ls -la "$FROXLOR_APP_DIR"
+          test -f "$FROXLOR_APP_DIR/.env"
+          test -d "$FROXLOR_FRAMEWORK_DIR"
 
       - name: Start docker stack
         working-directory: framework
