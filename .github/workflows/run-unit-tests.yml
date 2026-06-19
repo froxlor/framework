@@ -69,7 +69,12 @@ jobs:
 
       - name: Install dependencies
         working-directory: framework
-        run: docker compose -f docker-compose.ci.yml exec -T froxlor composer update froxlor/framework --with-dependencies --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
+        run: |
+          docker compose -f docker-compose.ci.yml exec -T froxlor sh -lc '
+            git config --global --add safe.directory /var/www/html/froxlor &&
+            git config --global --add safe.directory /var/www/html/framework &&
+            composer update --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
+          '
 
       - name: Fresh database with seeders
         working-directory: framework
