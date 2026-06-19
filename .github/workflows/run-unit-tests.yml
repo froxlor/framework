@@ -36,6 +36,14 @@ jobs:
           ls -la "$FROXLOR_APP_DIR"
           test -d "$FROXLOR_FRAMEWORK_DIR"
 
+      - name: Add swap space
+        run: |
+          sudo fallocate -l 4G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Start docker stack
         working-directory: framework
         run: docker compose -f docker-compose.ci.yml up -d
@@ -73,7 +81,7 @@ jobs:
           docker compose -f docker-compose.ci.yml exec -T froxlor sh -lc '
             git config --global --add safe.directory /var/www/html/froxlor &&
             git config --global --add safe.directory /var/www/html/framework &&
-            composer update --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
+            composer update --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist --no-progress
           '
 
       - name: Fresh database with seeders
