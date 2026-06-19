@@ -25,26 +25,35 @@ jobs:
           repository: froxlor/froxlor
           path: froxlor
 
+      - name: Verify CI paths
+        run: |
+          pwd
+          test -d "$FROXLOR_APP_DIR"
+          test -d "$FROXLOR_FRAMEWORK_DIR"
+
       - name: Use local framework checkout
         working-directory: froxlor
         run: |
           php -r '$file = "composer.json"; $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR); $json["repositories"] = [["name" => "framework", "type" => "path", "url" => "../framework", "options" => ["reference" => "config", "symlink" => true]]]; file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);'
 
-      - name: Verify CI paths
-        run: |
-          pwd
-          ls -la "$FROXLOR_APP_DIR"
-          test -d "$FROXLOR_FRAMEWORK_DIR"
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.5"
+          coverage: none
+          tools: composer:v2
 
-      - name: Add swap space
+      - name: Cache composer downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('froxlor/composer.json', 'framework/composer.json') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        working-directory: froxlor
         run: |
-          sudo swapoff /mnt/froxlor-swapfile 2>/dev/null || true
-          sudo rm -f /mnt/froxlor-swapfile
-          sudo fallocate -l 4G /mnt/froxlor-swapfile
-          sudo chmod 600 /mnt/froxlor-swapfile
-          sudo mkswap /mnt/froxlor-swapfile
-          sudo swapon /mnt/froxlor-swapfile
-          free -h
+          composer update --no-interaction --prefer-dist --no-progress
 
       - name: Start docker stack
         working-directory: framework
@@ -77,22 +86,13 @@ jobs:
             echo "DEV_SEED_DEVELOPMENT_DATA=true"
           } >> .env
 
-      - name: Install dependencies
-        working-directory: framework
-        run: |
-          docker compose -f docker-compose.ci.yml exec -T froxlor sh -lc '
-            git config --global --add safe.directory /var/www/html/froxlor &&
-            git config --global --add safe.directory /var/www/html/framework &&
-            composer update --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist --no-progress
-          '
-
       - name: Fresh database with seeders
         working-directory: framework
         run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan migrate:fresh --seed --force
 
       - name: Run tests
         working-directory: framework
-        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test
+        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test /var/www/html/framework/packages/core/tests
 
       - name: Docker logs on failure
         working-directory: framework
