@@ -29,9 +29,23 @@ class RolePermissionAuthorizationTest extends TestCase
             ])
             ->assertOk();
 
+        $this->assertFalse((bool)$role->permissions()
+            ->where('permissions.id', $permission->id)
+            ->firstOrFail()
+            ->pivot
+            ->inheritable);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'permission "' . $permission->key . '" assigned to role "' . $role->name . '"',
+        ]);
+
         $this->actingAs($user, 'sanctum')
             ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
             ->assertOk();
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'permission "' . $permission->key . '" removed from role "' . $role->name . '"',
+        ]);
     }
 
     public function test_role_permission_index_lists_assigned_and_unassigned_permissions(): void
@@ -60,6 +74,28 @@ class RolePermissionAuthorizationTest extends TestCase
         $this->assertSame($unassignedPermission->key, $unassigned['key']);
         $this->assertFalse($unassigned['assigned']);
         $this->assertFalse($unassigned['inheritable']);
+    }
+
+    public function test_global_role_permission_store_persists_inheritable_true(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.store')->firstOrFail();
+
+        $role->permissions()->detach($permission);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/roles/' . $role->id . '/permissions', [
+                'permission_id' => $permission->id,
+                'inheritable' => true,
+            ])
+            ->assertOk();
+
+        $this->assertTrue((bool)$role->permissions()
+            ->where('permissions.id', $permission->id)
+            ->firstOrFail()
+            ->pivot
+            ->inheritable);
     }
 
     public function test_tenant_admin_cannot_manage_global_role_permissions(): void
@@ -112,6 +148,46 @@ class RolePermissionAuthorizationTest extends TestCase
                 'inheritable' => false,
             ])
             ->assertForbidden();
+    }
+
+    public function test_user_cannot_remove_permission_without_inheritable_delegation(): void
+    {
+        $user = User::query()->create([
+            'first_name' => 'Limited',
+            'last_name' => 'Permission Remover',
+            'email' => 'limited-permission-remover-' . str()->ulid() . '@froxlor.test',
+            'password' => 'secret-password',
+        ]);
+        $userRole = Role::query()->create([
+            'name' => 'Limited Permission Remover ' . str()->ulid(),
+        ]);
+        $targetRole = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+        $wildcardPermission = Permission::query()->where('key', '*')->firstOrFail();
+
+        $targetRole->permissions()->syncWithoutDetaching([
+            $permission->id => ['inheritable' => false],
+        ]);
+        $userRole->permissions()->attach($wildcardPermission, ['inheritable' => false]);
+        $user->roles()->attach($userRole);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $targetRole->id . '/permissions/' . $permission->id)
+            ->assertForbidden();
+    }
+
+    public function test_detaching_unassigned_global_role_permission_returns_validation_error(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.update')->firstOrFail();
+
+        $role->permissions()->detach($permission);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['permission_id']);
     }
 
     public function test_global_role_permission_route_does_not_manage_tenant_roles(): void

@@ -13,6 +13,7 @@ use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -46,7 +47,7 @@ class UserController extends Controller
             $plan = $this->getNonModelRequestData('plan_id', $userData)
                 ?? $this->getNonModelRequestData('plan', $userData);
 
-            $this->ensureRoleCanBeAssignedToTenant($role, $tenant);
+            RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $tenant);
             $this->ensurePlanCanBeAssignedToTenant($plan, $tenant);
 
             // create resource
@@ -108,7 +109,7 @@ class UserController extends Controller
         $planId = $this->getNonModelRequestData('plan_id', $userData)
             ?? $this->getNonModelRequestData('plan', $userData);
 
-        $this->ensureRoleCanBeAssignedToTenant($roleId, $tenant);
+        RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $tenant);
         $this->ensurePlanCanBeAssignedToTenant($planId, $tenant);
 
         $user->update($userData);
@@ -142,21 +143,6 @@ class UserController extends Controller
         event(new ResourceDeleted($user, []));
 
         return response()->json(['message' => 'User removed from environment successfully'], 200);
-    }
-
-    private function ensureRoleCanBeAssignedToTenant(?string $roleId, Tenant $tenant): void
-    {
-        if (empty($roleId)) {
-            return;
-        }
-
-        $role = Role::query()->findOrFail($roleId);
-
-        if ($role->tenant_id !== null && $role->tenant_id !== $tenant->id) {
-            throw ValidationException::withMessages([
-                'role_id' => 'The selected role is not available for this tenant.',
-            ]);
-        }
     }
 
     private function ensurePlanCanBeAssignedToTenant(?string $planId, Tenant $tenant): void

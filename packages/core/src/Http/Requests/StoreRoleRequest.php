@@ -4,6 +4,7 @@ namespace Froxlor\Core\Http\Requests;
 
 use Froxlor\Core\Http\Requests\Abstract\FroxlorFormRequest;
 use Froxlor\Core\Models\Role;
+use Illuminate\Validation\Rule;
 
 class StoreRoleRequest extends FroxlorFormRequest
 {
@@ -23,7 +24,14 @@ class StoreRoleRequest extends FroxlorFormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string',
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('roles', 'name')
+                    ->where(fn($query) => $this->input('tenant_id') === null
+                        ? $query->whereNull('tenant_id')
+                        : $query->where('tenant_id', $this->input('tenant_id'))),
+            ],
             'description' => 'string|nullable',
             'tenant_id' => 'nullable|string|ulid|exists:tenants,id',
         ];

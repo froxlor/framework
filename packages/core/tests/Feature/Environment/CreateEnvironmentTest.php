@@ -64,7 +64,7 @@ class CreateEnvironmentTest extends TestCase
         $this->assertSame(5, $node->getSetting('node.last_username_number'));
 
         $this->assertStringContainsString('candidate=\'10004\'', CreateEnvironmentFakeAdapter::$guidResolutionCommand);
-        $this->assertStringContainsString('JAIL_USER="usr5"', CreateEnvironmentFakeAdapter::$uploadedScript);
+        $this->assertStringContainsString('JAILUSER="usr5"', CreateEnvironmentFakeAdapter::$uploadedScript);
         $this->assertStringContainsString('GUID="10005"', CreateEnvironmentFakeAdapter::$uploadedScript);
 
         $auditLog = AuditLog::query()
@@ -114,9 +114,9 @@ class CreateEnvironmentTest extends TestCase
         $deleteCommands = implode(PHP_EOL, CreateEnvironmentFakeAdapter::$executedCommands[0]);
 
         $this->assertStringContainsString("JAILBASE='/srv/environments/" . $environment->id . "'", $deleteCommands);
-        $this->assertStringContainsString("JAIL_USER='usr7'", $deleteCommands);
-        $this->assertStringContainsString('userdel "$JAIL_USER"', $deleteCommands);
-        $this->assertStringContainsString('groupdel "$JAIL_USER"', $deleteCommands);
+        $this->assertStringContainsString("JAILUSER='usr7'", $deleteCommands);
+        $this->assertStringContainsString('userdel "$JAILUSER"', $deleteCommands);
+        $this->assertStringContainsString('groupdel "$JAILUSER"', $deleteCommands);
         $this->assertStringContainsString('rm -rf -- "$JAILBASE"', $deleteCommands);
 
         $auditLog = AuditLog::query()

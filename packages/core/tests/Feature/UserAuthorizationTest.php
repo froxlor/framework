@@ -107,4 +107,35 @@ class UserAuthorizationTest extends TestCase
             ->deleteJson('/api/users/' . $targetUser->id)
             ->assertForbidden();
     }
+
+    public function test_global_user_create_checks_assigned_role_delegation(): void
+    {
+        $user = User::query()->create([
+            'first_name' => 'Limited',
+            'last_name' => 'Global User Manager',
+            'email' => 'limited-global-user-manager-' . str()->ulid() . '@froxlor.test',
+            'password' => bcrypt('secret-password'),
+        ]);
+        $role = Role::query()->create([
+            'name' => 'Limited Global User Manager ' . str()->ulid(),
+        ]);
+        $wildcardPermission = \Froxlor\Core\Models\Permission::query()->where('key', '*')->firstOrFail();
+        $superAdminRole = Role::query()->where('name', 'Super-Admin')->firstOrFail();
+        $tenant = \Froxlor\Core\Models\Tenant::query()->where('name', 'First customer')->firstOrFail();
+
+        $role->permissions()->attach($wildcardPermission, ['inheritable' => false]);
+        $user->roles()->attach($role);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/users', [
+                'first_name' => 'Forbidden',
+                'last_name' => 'Global Assignment',
+                'email' => 'forbidden-global-assignment-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'tenant_id' => $tenant->id,
+                'role_id' => $superAdminRole->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role_id']);
+    }
 }

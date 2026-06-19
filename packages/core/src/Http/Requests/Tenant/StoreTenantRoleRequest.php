@@ -4,6 +4,7 @@ namespace Froxlor\Core\Http\Requests\Tenant;
 
 use Froxlor\Core\Http\Requests\Abstract\FroxlorFormRequest;
 use Froxlor\Core\Models\Role;
+use Illuminate\Validation\Rule;
 
 class StoreTenantRoleRequest extends FroxlorFormRequest
 {
@@ -23,7 +24,12 @@ class StoreTenantRoleRequest extends FroxlorFormRequest
     public function rules(): array
     {
         return [
-            'name' => 'required|string',
+            'name' => [
+                'required',
+                'string',
+                Rule::unique('roles', 'name')
+                    ->where(fn($query) => $query->where('tenant_id', $this->route('tenant')?->id)),
+            ],
             'description' => 'string|nullable',
         ];
     }

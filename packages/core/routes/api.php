@@ -27,6 +27,7 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('tenants.users', Api\Tenant\UserController::class);
     Route::apiResource('tenants.plans', Api\Tenant\PlanController::class);
     Route::apiResource('tenants.roles', Api\Tenant\RoleController::class);
+    Route::apiResource('tenants.roles.permissions', Api\Tenant\Role\RolePermissionController::class)->only(['index', 'store', 'destroy']);
 
     Route::apiResource('plans', Api\PlanController::class);
     Route::apiResource('roles/permissions', Api\PermissionController::class)->only(['index'])->names([

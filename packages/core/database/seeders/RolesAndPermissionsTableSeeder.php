@@ -37,7 +37,7 @@ class RolesAndPermissionsTableSeeder extends Seeder
 
         // id=2 admin (everything allowed in tenant scope)
         self::createRoleWithPermissions('Admin', [
-            ['key' => 'tenants.*'],
+            ['key' => 'tenants.*', 'inheritable' => true],
         ]);
 
         // id=3 reseller, only allow adding plans and roles

@@ -1,30 +1,27 @@
 <?php
 
-namespace Froxlor\Core\Http\Controllers\Api\Role;
+namespace Froxlor\Core\Http\Controllers\Api\Tenant\Role;
 
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Models\Permission;
 use Froxlor\Core\Models\Role;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Audit;
-use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
+use Froxlor\Core\Support\RoleAssignments;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
-/**
- * View permissions assigned to roles,
- * adjust role permissions on a global basis
- */
 class RolePermissionController extends Controller
 {
     /**
-     * Display a listing of the resource.
+     * Display every available permission and mark permissions assigned to the tenant role.
      */
-    public function index(Request $request, Role $role)
+    public function index(Request $request, Tenant $tenant, Role $role)
     {
-        Gate::authorize('roleViewAny', [Permission::class, $role]);
+        Gate::authorize('tenantRoleViewAny', [Permission::class, $tenant, $role]);
 
         if ($request->query('ids_only', false)) {
             return response()->json([
@@ -51,11 +48,11 @@ class RolePermissionController extends Controller
     }
 
     /**
-     * Store a newly created resource in storage.
+     * Assign a permission to a tenant-owned role when the actor may delegate it.
      */
-    public function store(Request $request, Role $role)
+    public function store(Request $request, Tenant $tenant, Role $role)
     {
-        Gate::authorize('roleCreate', [Permission::class, $role]);
+        Gate::authorize('tenantRoleCreate', [Permission::class, $tenant, $role]);
 
         $data = $request->validate([
             'permission_id' => 'required|string|ulid|exists:permissions,id',
@@ -64,13 +61,13 @@ class RolePermissionController extends Controller
 
         $permission = Permission::findOrFail($data['permission_id']);
 
-        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
+        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key, $tenant), 403);
 
         $role->permissions()->syncWithoutDetaching([
             $permission->id => ['inheritable' => $data['inheritable'] ?? false],
         ]);
 
-        Audit::log('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $role->tenant, context: [
+        Audit::log('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $tenant, context: [
             'role_id' => $role->id,
             'permission_id' => $permission->id,
             'permission_key' => $permission->key,
@@ -81,13 +78,13 @@ class RolePermissionController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove a permission from a tenant-owned role when the actor may delegate it.
      */
-    public function destroy(Request $request, Role $role, Permission $permission)
+    public function destroy(Request $request, Tenant $tenant, Role $role, Permission $permission)
     {
-        Gate::authorize('roleDelete', [$permission, $role]);
+        Gate::authorize('tenantRoleDelete', [$permission, $tenant, $role]);
 
-        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
+        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key, $tenant), 403);
 
         if (!$role->permissions()->where('permissions.id', $permission->id)->exists()) {
             throw ValidationException::withMessages([
@@ -97,7 +94,7 @@ class RolePermissionController extends Controller
 
         $role->permissions()->detach($permission);
 
-        Audit::log('permission "' . $permission->key . '" removed from role "' . $role->name . '"', $role->tenant, context: [
+        Audit::log('permission "' . $permission->key . '" removed from role "' . $role->name . '"', $tenant, context: [
             'role_id' => $role->id,
             'permission_id' => $permission->id,
             'permission_key' => $permission->key,

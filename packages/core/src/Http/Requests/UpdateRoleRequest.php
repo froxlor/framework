@@ -3,6 +3,7 @@
 namespace Froxlor\Core\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateRoleRequest extends FormRequest
 {
@@ -22,9 +23,16 @@ class UpdateRoleRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'name' => 'sometimes|string',
+            'name' => [
+                'sometimes',
+                'string',
+                Rule::unique('roles', 'name')
+                    ->where(fn($query) => $this->route('role')?->tenant_id === null
+                        ? $query->whereNull('tenant_id')
+                        : $query->where('tenant_id', $this->route('role')->tenant_id))
+                    ->ignore($this->route('role')),
+            ],
             'description' => 'sometimes|nullable|string',
-            'tenant_id' => 'sometimes|nullable|string|ulid|exists:tenants,id',
         ];
     }
 }
