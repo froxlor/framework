@@ -6,8 +6,6 @@ services:
     depends_on:
       - db
       - redis
-    env_file:
-      - ${FROXLOR_APP_DIR:-../froxlor}/.env
     volumes:
       - ${FROXLOR_APP_DIR:-../froxlor}:/var/www/html/froxlor
       - ${FROXLOR_FRAMEWORK_DIR:-.}:/var/www/html/framework
