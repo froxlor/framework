@@ -2,10 +2,9 @@
 
 namespace Froxlor\Core\Database\Seeders;
 
-use FilesystemIterator;
 use Froxlor\Core\Models\Permission;
 use Froxlor\Core\Models\Role;
-use Froxlor\Core\Services\Traits\HasPermissions;
+use Froxlor\Core\Support\PermissionRegistry;
 use Illuminate\Database\Seeder;
 
 class RolesAndPermissionsTableSeeder extends Seeder
@@ -21,14 +20,8 @@ class RolesAndPermissionsTableSeeder extends Seeder
      */
     public function run(): void
     {
-        // set up all permission from the models with trait "hasPermissions"
-        $fileSystemIterator = new FilesystemIterator(dirname(__DIR__, 2) . '/src/Models');
-
-        foreach ($fileSystemIterator as $fileInfo) {
-            if ($fileInfo->getFilename() != '.' && $fileInfo->getFilename() != '..' && !$fileInfo->isDir()) {
-                self::createPermissions(substr($fileInfo->getFilename(), 0, -4));
-            }
-        }
+        PermissionRegistry::registerPackageModelsFrom(dirname(__DIR__, 3));
+        PermissionRegistry::sync();
 
         // id=1 super-admin (everything allowed)
         self::createRoleWithPermissions('Super-Admin', [
@@ -49,23 +42,6 @@ class RolesAndPermissionsTableSeeder extends Seeder
         self::createRoleWithPermissions('Environment-Owner', [
             ['key' => 'tenants.environments.*', 'inheritable' => true]
         ]);
-    }
-
-    /**
-     * Create all permissions exposed by a core model that uses `HasPermissions`.
-     */
-    private static function createPermissions(string $modelName): void
-    {
-        $modelFQCN = "\\Froxlor\\Core\\Models\\" . $modelName;
-        $model = new $modelFQCN();
-        if (in_array(HasPermissions::class, class_uses_recursive($model))) {
-            foreach ($model::getAllPermissions() as $permission) {
-                Permission::query()->where('key', $permission['key'])->firstOrCreate([
-                    'key' => $permission['key'],
-                    'name' => $permission['name'],
-                ]);
-            }
-        }
     }
 
     /**
