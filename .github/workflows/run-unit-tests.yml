@@ -38,10 +38,12 @@ jobs:
 
       - name: Add swap space
         run: |
-          sudo fallocate -l 4G /swapfile
-          sudo chmod 600 /swapfile
-          sudo mkswap /swapfile
-          sudo swapon /swapfile
+          sudo swapoff /mnt/froxlor-swapfile 2>/dev/null || true
+          sudo rm -f /mnt/froxlor-swapfile
+          sudo fallocate -l 4G /mnt/froxlor-swapfile
+          sudo chmod 600 /mnt/froxlor-swapfile
+          sudo mkswap /mnt/froxlor-swapfile
+          sudo swapon /mnt/froxlor-swapfile
           free -h
 
       - name: Start docker stack
