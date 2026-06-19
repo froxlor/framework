@@ -12,12 +12,10 @@ jobs:
 
     steps:
       - name: Checkout framework
-        uses: actions/checkout@v4
-        with:
-          path: framework
+        uses: actions/checkout@v7
 
       - name: Checkout froxlor app
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           repository: froxlor/froxlor
           path: froxlor
@@ -55,21 +53,21 @@ jobs:
           php -r '$file = "composer.json"; $json = json_decode(file_get_contents($file), true, 512, JSON_THROW_ON_ERROR); $json["repositories"] = [["name" => "framework", "type" => "path", "url" => "../framework", "options" => ["reference" => "config", "symlink" => true]]]; file_put_contents($file, json_encode($json, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . PHP_EOL);'
 
       - name: Start docker stack
-        run: docker compose -f framework/docker-compose.ci.yml up -d
+        run: docker compose -f docker-compose.ci.yml up -d
 
       - name: Install dependencies
-        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor composer update froxlor/framework --with-dependencies --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
+        run: docker compose -f docker-compose.ci.yml exec -T froxlor composer update froxlor/framework --with-dependencies --working-dir=/var/www/html/froxlor --no-interaction --prefer-dist
 
       - name: Fresh database with seeders
-        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan migrate:fresh --seed --force
+        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan migrate:fresh --seed --force
 
       - name: Run tests
-        run: docker compose -f framework/docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test
+        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test
 
       - name: Docker logs on failure
         if: failure()
-        run: docker compose -f framework/docker-compose.ci.yml logs --no-color
+        run: docker compose -f docker-compose.ci.yml logs --no-color
 
       - name: Stop docker stack
         if: always()
-        run: docker compose -f framework/docker-compose.ci.yml down -v --remove-orphans
+        run: docker compose -f docker-compose.ci.yml down -v --remove-orphans
