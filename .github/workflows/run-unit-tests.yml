@@ -97,7 +97,7 @@ jobs:
 
       - name: Run tests
         working-directory: framework
-        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test /var/www/html/framework/packages/core/tests
+        run: docker compose -f docker-compose.ci.yml exec -T froxlor php /var/www/html/froxlor/artisan test
 
       - name: Docker logs on failure
         working-directory: framework
