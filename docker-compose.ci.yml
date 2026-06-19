@@ -9,7 +9,7 @@ services:
     env_file:
       - ./froxlor/.env
     volumes:
-      - ./froxlor:/var/www/html/froxlor
+      - ../froxlor:/var/www/html/froxlor
       - ./:/var/www/html/framework
       - environments:/srv/environments
     networks:
