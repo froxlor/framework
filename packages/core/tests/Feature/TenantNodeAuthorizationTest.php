@@ -101,7 +101,7 @@ class TenantNodeAuthorizationTest extends TestCase
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $plan = Plan::query()->where('name', 'Everything 10')->firstOrFail();
+        $plan = Plan::query()->where('name', 'Test Tenant Limited')->firstOrFail();
 
         $inheritableNode = Node::query()->create([
             'tenant_id' => $tenant->id,

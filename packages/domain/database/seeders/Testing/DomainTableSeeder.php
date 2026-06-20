@@ -18,19 +18,19 @@ class DomainTableSeeder extends Seeder
      */
     public function run(): void
     {
-        // add ourselves as available resource
-        $domain_resource = Resource::query()->create([
+        $domainResource = Resource::query()->where([
             'key' => 'domains',
-            'name' => 'Domains',
             'type' => 'environment',
             'model_type' => Domain::class,
-        ]);
+        ])->firstOrFail();
 
-        // add to unlimited plan to be available for super-admin
-        $plan = Plan::query()->where('name', 'Unlimited')->first();
-        $plan->resources()->attach($domain_resource, [
-            'limit' => -1
-        ]);
+        // add to environment plans to be available in environment-scoped tests
+        foreach (['Environment Unlimited', 'Test Environment Unlimited'] as $planName) {
+            $plan = Plan::query()->where('name', $planName)->firstOrFail();
+            $plan->resources()->syncWithoutDetaching([
+                $domainResource->id => ['limit' => -1],
+            ]);
+        }
 
         /**
          * @todo this is for debugging/development purposes

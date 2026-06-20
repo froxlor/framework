@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use Froxlor\Core\Models\Plan;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Tests\TestCase;
 
@@ -54,6 +55,23 @@ class PlanAuthorizationTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->deleteJson('/api/plans/' . $planId)
             ->assertNoContent();
+    }
+
+    public function test_assigned_global_plan_cannot_be_deleted(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Platform Unlimited')->firstOrFail();
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $originalPlanId = $tenant->plan_id;
+
+        $tenant->update(['plan_id' => $plan->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/plans/' . $plan->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan']);
+
+        $tenant->update(['plan_id' => $originalPlanId]);
     }
 
     public function test_tenant_admin_cannot_manage_global_plan(): void

@@ -3,6 +3,7 @@
 namespace Froxlor\Database\Models;
 
 use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Services\Traits\IsEnvironmentResource;
 use Froxlor\Core\Services\Traits\IsResource;
 use Froxlor\Database\Observers\DatabaseObserver;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
@@ -35,7 +36,7 @@ use Illuminate\Support\Carbon;
 #[ObservedBy(DatabaseObserver::class)]
 class Database extends Model
 {
-    use HasUlids, IsResource, SoftDeletes;
+    use HasUlids, IsResource, IsEnvironmentResource, SoftDeletes;
 
     protected $guarded = [];
 

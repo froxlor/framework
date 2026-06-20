@@ -6,6 +6,7 @@ use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Services\Traits\HasPermissions;
+use Froxlor\Core\Services\Traits\IsEnvironmentResource;
 use Froxlor\Core\Services\Traits\IsResource;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -29,7 +30,7 @@ use Illuminate\Support\Carbon;
  */
 class Domain extends Model
 {
-    use HasUlids, HasPermissions, IsResource;
+    use HasUlids, HasPermissions, IsResource, IsEnvironmentResource;
 
     protected $guarded = [];
 

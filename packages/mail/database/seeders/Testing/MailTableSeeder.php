@@ -21,28 +21,25 @@ class MailTableSeeder extends Seeder
      */
     public function run(): void
     {
-        // add ourselves as available resource
-        $mailAddrResource = Resource::query()->create([
+        $mailAddrResource = Resource::query()->where([
             'key' => 'mailaddresses',
-            'name' => 'Mail addresses',
             'type' => 'environment',
             'model_type' => MailAddress::class,
-        ]);
-        $mailAccResource = Resource::query()->create([
+        ])->firstOrFail();
+        $mailAccResource = Resource::query()->where([
             'key' => 'mailaccounts',
-            'name' => 'Mail accounts',
             'type' => 'environment',
             'model_type' => MailAccount::class,
-        ]);
+        ])->firstOrFail();
 
-        // add to unlimited plan to be available for super-admin
-        $plan = Plan::query()->where('name', 'Unlimited')->first();
-        $plan->resources()->attach($mailAddrResource, [
-            'limit' => -1
-        ]);
-        $plan->resources()->attach($mailAccResource, [
-            'limit' => -1
-        ]);
+        // add to environment plans to be available in environment-scoped tests
+        foreach (['Environment Unlimited', 'Test Environment Unlimited'] as $planName) {
+            $plan = Plan::query()->where('name', $planName)->firstOrFail();
+            $plan->resources()->syncWithoutDetaching([
+                $mailAddrResource->id => ['limit' => -1],
+                $mailAccResource->id => ['limit' => -1],
+            ]);
+        }
 
         // introduce our settings
         Setting::add('mail.enabled', true, true, 'boolean');

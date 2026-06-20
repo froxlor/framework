@@ -4,6 +4,7 @@ namespace Froxlor\Core\Models;
 
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\IsTenantResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -28,7 +29,9 @@ use Illuminate\Support\Collection;
  */
 class Plan extends Model
 {
-    use HasUlids, IsResource, HasPermissions;
+    use HasUlids, IsResource, IsTenantResource, HasPermissions {
+        HasPermissions::getAllPermissions as protected getBasePermissions;
+    }
 
     protected $guarded = [];
 
@@ -47,6 +50,24 @@ class Plan extends Model
         return $this->belongsToMany(Resource::class)
             ->withPivot(['limit'])
             ->using(PlanResource::class);
+    }
+
+    /**
+     * Return plan CRUD permissions plus resource-assignment permissions.
+     *
+     * Plan resources are managed as a separate API surface, mirroring role
+     * permissions, because changing a plan's resource limits is a security-sensitive
+     * quota change rather than a simple plan metadata update.
+     */
+    public static function getAllPermissions(): array
+    {
+        return [
+            ...self::getBasePermissions(),
+            ['key' => 'plans.resources.*', 'name' => 'Manage plan resources'],
+            ['key' => 'plans.resources.index', 'name' => 'View plan resources'],
+            ['key' => 'plans.resources.store', 'name' => 'Assign plan resources'],
+            ['key' => 'plans.resources.destroy', 'name' => 'Remove plan resources'],
+        ];
     }
 
     /**
@@ -69,6 +90,14 @@ class Plan extends Model
             $query->whereNull('tenant_id')
                 ->orWhere('tenant_id', $tenant->id);
         });
+    }
+
+    /**
+     * Check whether this plan can be assigned to tenant users.
+     */
+    public function isTenantPlan(): bool
+    {
+        return $this->type === 'tenant';
     }
 
     /**

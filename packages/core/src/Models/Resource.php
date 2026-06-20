@@ -37,7 +37,7 @@ class Resource extends Model
     public function limit(): Attribute
     {
         return Attribute::make(
-            get: fn() => $this->pivot->limit
+            get: fn($value) => $this->pivot?->limit ?? $value
         );
     }
 }

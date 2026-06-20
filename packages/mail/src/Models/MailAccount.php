@@ -2,6 +2,7 @@
 
 namespace Froxlor\Mail\Models;
 
+use Froxlor\Core\Services\Traits\IsEnvironmentResource;
 use Froxlor\Core\Services\Traits\IsResource;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -30,7 +31,7 @@ use Illuminate\Support\Carbon;
  */
 class MailAccount extends Model
 {
-    use HasUlids, SoftDeletes, IsResource;
+    use HasUlids, SoftDeletes, IsResource, IsEnvironmentResource;
 
     protected $guarded = [];
 

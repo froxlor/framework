@@ -26,10 +26,12 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('tenants.environments.plans', Api\Tenant\Environment\PlansController::class);
     Route::apiResource('tenants.users', Api\Tenant\UserController::class);
     Route::apiResource('tenants.plans', Api\Tenant\PlanController::class);
+    Route::apiResource('tenants.plans.resources', Api\Tenant\Plan\PlanResourceController::class)->only(['index', 'store', 'destroy']);
     Route::apiResource('tenants.roles', Api\Tenant\RoleController::class);
     Route::apiResource('tenants.roles.permissions', Api\Tenant\Role\RolePermissionController::class)->only(['index', 'store', 'destroy']);
 
     Route::apiResource('plans', Api\PlanController::class);
+    Route::apiResource('plans.resources', Api\Plan\PlanResourceController::class)->only(['index', 'store', 'destroy']);
     Route::apiResource('roles/permissions', Api\PermissionController::class)->only(['index'])->names([
         'index' => 'roles.permissions.available',
     ]);

@@ -5,6 +5,7 @@ namespace Froxlor\Core\Models;
 use Froxlor\Core\Exceptions\UnknownTenantUserException;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\IsTenantResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -36,7 +37,7 @@ use Illuminate\Support\Facades\DB;
  */
 class Tenant extends Model
 {
-    use HasUlids, IsResource, HasPermissions;
+    use HasUlids, IsResource, IsTenantResource, HasPermissions;
 
     public $guarded = [];
 
@@ -308,6 +309,10 @@ class Tenant extends Model
             ['key' => $basePermKey . '.plans.store', 'name' => 'Create plans in ' . $basePermKey],
             ['key' => $basePermKey . '.plans.update', 'name' => 'Update plans in ' . $basePermKey],
             ['key' => $basePermKey . '.plans.destroy', 'name' => 'Delete plans in ' . $basePermKey],
+            ['key' => $basePermKey . '.plans.resources.*', 'name' => 'Manage plan resources in ' . $basePermKey],
+            ['key' => $basePermKey . '.plans.resources.index', 'name' => 'View plan resources in ' . $basePermKey],
+            ['key' => $basePermKey . '.plans.resources.store', 'name' => 'Assign plan resources in ' . $basePermKey],
+            ['key' => $basePermKey . '.plans.resources.destroy', 'name' => 'Remove plan resources in ' . $basePermKey],
             // tenants users
             ['key' => $basePermKey . '.users.*', 'name' => 'Manage ' . $basePermKey . ' users'],
             ['key' => $basePermKey . '.users.index', 'name' => 'View ' . $basePermKey . ' users'],

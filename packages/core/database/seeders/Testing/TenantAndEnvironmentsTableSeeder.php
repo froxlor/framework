@@ -27,7 +27,7 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
         $env1 = $user->environments()->create([
             'name' => 'Development Environment',
             'tenant_id' => $user->tenants[0]->id,
-            'plan_id' => Plan::query()->where('name', 'Unlimited')->first()->id // Unlimited plan
+            'plan_id' => Plan::query()->where('name', 'Test Environment Unlimited')->first()->id
         ], [
             'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id // Super-Admin role for the users on this environment
         ]);
@@ -38,6 +38,7 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
         $env2 = $user2->environments()->create([
             'name' => 'Kunden Environment',
             'tenant_id' => $user2->tenants[0]->id,
+            'plan_id' => Plan::query()->where('name', 'Test Environment Limited')->first()->id,
         ], [
             'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id // Super-Admin role for the users on this environment
         ]);
@@ -47,7 +48,7 @@ class TenantAndEnvironmentsTableSeeder extends Seeder
         $env3 = $user3->environments()->create([
             'name' => 'Reseller->User Environment',
             'tenant_id' => $user3->tenants[0]->id,
-            'plan_id' => Plan::query()->where('name', 'Plans and roles')->first()->id // "Plans and roles" plan
+            'plan_id' => Plan::query()->where('name', 'Test Environment Minimal')->first()->id
         ], [
             'role_id' => Role::query()->where('name', 'Reseller')->first()->id // Reseller role for the users on this environment
         ]);

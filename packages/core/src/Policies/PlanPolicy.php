@@ -49,6 +49,24 @@ class PlanPolicy
         return $user->hasPermission('plans.destroy');
     }
 
+    public function resourceViewAny(User $user, Plan $plan): bool
+    {
+        return $plan->tenant_id === null
+            && $user->hasPermission('plans.resources.index');
+    }
+
+    public function resourceCreate(User $user, Plan $plan): bool
+    {
+        return $plan->tenant_id === null
+            && $user->hasPermission('plans.resources.store');
+    }
+
+    public function resourceDelete(User $user, Plan $plan): bool
+    {
+        return $plan->tenant_id === null
+            && $user->hasPermission('plans.resources.destroy');
+    }
+
     public function tenantViewAny(User $user, Tenant $tenant): bool
     {
         return $this->hasScopedPermission($user, 'tenants.plans.index', $tenant);
@@ -84,6 +102,33 @@ class PlanPolicy
         }
 
         return $this->hasScopedPermission($user, 'tenants.plans.destroy', $tenant);
+    }
+
+    public function tenantResourceViewAny(User $user, Plan $plan, Tenant $tenant): bool
+    {
+        if ($plan->tenant_id !== $tenant->id) {
+            return false;
+        }
+
+        return $this->hasScopedPermission($user, 'tenants.plans.resources.index', $tenant);
+    }
+
+    public function tenantResourceCreate(User $user, Plan $plan, Tenant $tenant): bool
+    {
+        if ($plan->tenant_id !== $tenant->id) {
+            return false;
+        }
+
+        return $this->hasScopedPermission($user, 'tenants.plans.resources.store', $tenant);
+    }
+
+    public function tenantResourceDelete(User $user, Plan $plan, Tenant $tenant): bool
+    {
+        if ($plan->tenant_id !== $tenant->id) {
+            return false;
+        }
+
+        return $this->hasScopedPermission($user, 'tenants.plans.resources.destroy', $tenant);
     }
 
     public function tenantEnvViewAny(User $user, Tenant $tenant, Environment $environment): bool

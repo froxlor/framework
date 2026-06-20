@@ -15,13 +15,10 @@ class BootstrapService
     {
         // create master tenant
         $tenant = Tenant::query()->create([
-            'plan_id' => Plan::query()->where('name', 'Unlimited')->first()->id,
+            'plan_id' => Plan::query()->where('name', 'Platform Unlimited')->first()->id,
             'name' => 'Froxlor',
             'description' => 'Froxlor Master Tenant'
         ]);
-
-        // let the tenant own the "plans and roles" plan
-        Plan::query()->where('name', 'Plans and roles')->first()->update(['tenant_id' => $tenant->id]);
 
         // create root user
         $user = User::query()->create([

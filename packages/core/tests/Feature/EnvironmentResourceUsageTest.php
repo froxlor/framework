@@ -17,7 +17,7 @@ class EnvironmentResourceUsageTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $environmentId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [
@@ -68,8 +68,8 @@ class EnvironmentResourceUsageTest extends TestCase
 
         $parentTenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
         $subTenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
-        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $this->actingAs($user, 'sanctum');
 
@@ -97,7 +97,7 @@ class EnvironmentResourceUsageTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $environmentId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [

@@ -32,7 +32,7 @@ class NodeResourceUsageTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $this->actingAs($user, 'sanctum');
 
@@ -84,8 +84,8 @@ class NodeResourceUsageTest extends TestCase
 
         $parentTenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $subTenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
-        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $this->actingAs($user, 'sanctum');
 
@@ -109,7 +109,7 @@ class NodeResourceUsageTest extends TestCase
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $plan = Plan::query()->where('name', 'Unlimited')->firstOrFail();
+        $plan = Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $tenant->update(['plan_id' => $plan->id]);
 
@@ -146,7 +146,7 @@ class NodeResourceUsageTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
 
         $this->actingAs($user, 'sanctum');
 

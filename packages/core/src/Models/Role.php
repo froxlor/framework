@@ -4,6 +4,7 @@ namespace Froxlor\Core\Models;
 
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\IsTenantResource;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -26,7 +27,7 @@ use Illuminate\Support\Collection;
  */
 class Role extends Model
 {
-    use HasUlids, IsResource, HasPermissions;
+    use HasUlids, IsResource, IsTenantResource, HasPermissions;
 
     protected $guarded = [];
 

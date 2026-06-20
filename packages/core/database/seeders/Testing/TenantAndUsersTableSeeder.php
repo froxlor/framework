@@ -48,7 +48,7 @@ class TenantAndUsersTableSeeder extends Seeder
          * 1st Level Tenant
          */
         $tenant2 = Tenant::query()->create([
-            'plan_id' => Plan::query()->where('name', 'Everything 10')->first()->id, // Everything 10
+            'plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->first()->id,
             'name' => 'First customer',
             'parent_tenant_id' => $tenant->id,
         ]);
@@ -73,7 +73,7 @@ class TenantAndUsersTableSeeder extends Seeder
          */
         $tenant3 = Tenant::query()->create([
             'parent_tenant_id' => $tenant2->id,
-            'plan_id' => Plan::query()->where('name', 'Unlimited')->first()->id,
+            'plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->first()->id,
             'name' => 'Kunde #2',
             'description' => 'Another Tenant'
         ]);
@@ -92,7 +92,7 @@ class TenantAndUsersTableSeeder extends Seeder
         // add to tenant
         $user3->tenants()->attach($tenant3, [
             'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id, // Super-Admin role for the users on this tenant
-            'plan_id' => Plan::query()->where('name', 'Everything 10')->first()->id // Everything 10
+            'plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->first()->id
         ]);
     }
 
