@@ -83,6 +83,8 @@ jobs:
             echo "DEV_FIRST_NAME=Admin"
             echo "DEV_LAST_NAME=User"
             echo "DEV_PASSWORD=secret-password"
+            echo "DEV_REPOSITORIES="
+            echo "DEV_PACKAGES="
             echo "DEV_SEED_DEVELOPMENT_DATA=true"
           } >> .env
 
