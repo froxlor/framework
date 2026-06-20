@@ -1,0 +1,43 @@
+services:
+  froxlor:
+    image: hub.froxlor.io/froxlor/froxlor:latest
+    privileged: true
+    pid: "host"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ${FROXLOR_APP_DIR:-../froxlor}:/var/www/html/froxlor
+      - ${FROXLOR_FRAMEWORK_DIR:-.}:/var/www/html/framework
+      - environments:/srv/environments
+    networks:
+      - internal
+
+  db:
+    image: mariadb:latest
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: froxlor
+      MYSQL_USER: froxlor
+      MYSQL_PASSWORD: froxlor
+    healthcheck:
+      test: ["CMD", "mariadb-admin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    networks:
+      - internal
+
+  redis:
+    image: redis:latest
+    networks:
+      - internal
+
+volumes:
+  environments:
+
+networks:
+  internal:
+    driver: bridge
