@@ -95,6 +95,33 @@ class TenantUserAuthorizationTest extends TestCase
             ->assertJsonValidationErrors(['role_id']);
     }
 
+    public function test_tenant_admin_cannot_assign_role_with_non_delegable_permissions(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $superAdminRole = Role::query()->where('name', 'Super-Admin')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/users', [
+                'first_name' => 'Forbidden',
+                'last_name' => 'Super Admin User',
+                'email' => 'forbidden-super-admin-user-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'role_id' => $superAdminRole->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role_id']);
+
+        $targetUser = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id . '/users/' . $targetUser->id, [
+                'role_id' => $superAdminRole->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role_id']);
+    }
+
     public function test_unassigned_user_cannot_manage_tenant_user(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();

@@ -9,7 +9,9 @@ use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreRoleRequest;
 use Froxlor\Core\Http\Requests\UpdateRoleRequest;
 use Froxlor\Core\Models\Role;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
+use Froxlor\Core\Support\RoleAssignments;
 use Illuminate\Support\Facades\Gate;
 
 class RoleController extends Controller
@@ -33,10 +35,16 @@ class RoleController extends Controller
      */
     public function store(StoreRoleRequest $request)
     {
-        Gate::authorize('create', Role::class);
-
         // get validated data only for ourselves
         $roleData = $request->validatedResource();
+
+        if (!empty($roleData['tenant_id'])) {
+            $tenant = Tenant::query()->findOrFail($roleData['tenant_id']);
+            Gate::authorize('tenantCreate', [Role::class, $tenant]);
+        } else {
+            Gate::authorize('create', Role::class);
+        }
+
         // create resource
         $role = Role::query()->create($roleData);
         // build up validated data for others
@@ -77,6 +85,7 @@ class RoleController extends Controller
     public function destroy(Role $role)
     {
         Gate::authorize('delete', $role);
+        RoleAssignments::ensureNotAssigned($role);
 
         $role->delete();
         event(new ResourceDeleted($role, []));

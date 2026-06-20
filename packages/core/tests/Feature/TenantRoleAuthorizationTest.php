@@ -73,6 +73,48 @@ class TenantRoleAuthorizationTest extends TestCase
             ->assertNoContent();
     }
 
+    public function test_tenant_role_names_must_be_unique_per_tenant(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $role = Role::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Unique Tenant Role ' . str()->ulid(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/roles', [
+                'name' => $role->name,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['name']);
+    }
+
+    public function test_assigned_tenant_role_cannot_be_deleted(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $assignedUser = User::query()->create([
+            'first_name' => 'Assigned',
+            'last_name' => 'Tenant Role',
+            'email' => 'assigned-tenant-role-' . str()->ulid() . '@froxlor.test',
+            'password' => bcrypt('secret'),
+        ]);
+        $role = Role::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Assigned Tenant Role ' . str()->ulid(),
+        ]);
+
+        $assignedUser->tenants()->attach($tenant, [
+            'role_id' => $role->id,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id . '/roles/' . $role->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+    }
+
     public function test_unassigned_user_cannot_manage_tenant_role(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();

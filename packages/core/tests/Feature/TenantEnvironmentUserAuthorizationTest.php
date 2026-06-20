@@ -18,7 +18,8 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
             ->where('name', 'Kunden Environment')
             ->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $role = Role::query()->where('name', 'Super-Admin')->firstOrFail();
+        $tenantRole = Role::query()->where('name', 'Admin')->firstOrFail();
+        $environmentRole = Role::query()->where('name', 'Super-Admin')->firstOrFail();
         $basePath = '/api/tenants/' . $tenant->id . '/environments/' . $environment->id . '/users';
 
         $userId = $this->actingAs($user, 'sanctum')
@@ -27,8 +28,8 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
                 'last_name' => 'User',
                 'email' => 'environment-user-' . str()->ulid() . '@froxlor.test',
                 'password' => 'secret-password',
-                'tenant_role' => $role->id,
-                'environment_role' => $role->id,
+                'tenant_role' => $tenantRole->id,
+                'environment_role' => $environmentRole->id,
             ])
             ->assertCreated()
             ->json('data.id');
@@ -61,7 +62,7 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
             ->firstOrFail();
         $user = User::query()->where('email', 'dev3@froxlor.org')->firstOrFail();
         $targetUser = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $role = Role::query()->where('name', 'Super-Admin')->firstOrFail();
+        $role = Role::query()->where('name', 'Admin')->firstOrFail();
         $basePath = '/api/tenants/' . $tenant->id . '/environments/' . $environment->id . '/users';
 
         $this->actingAs($user, 'sanctum')
@@ -92,5 +93,29 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->deleteJson($basePath . '/' . $targetUser->id)
             ->assertForbidden();
+    }
+
+    public function test_environment_admin_cannot_assign_tenant_role_without_delegation(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $environment = Environment::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('name', 'Kunden Environment')
+            ->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $superAdminRole = Role::query()->where('name', 'Super-Admin')->firstOrFail();
+        $basePath = '/api/tenants/' . $tenant->id . '/environments/' . $environment->id . '/users';
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson($basePath, [
+                'first_name' => 'Forbidden',
+                'last_name' => 'Tenant Role',
+                'email' => 'forbidden-env-tenant-role-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'tenant_role' => $superAdminRole->id,
+                'environment_role' => $superAdminRole->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tenant_role']);
     }
 }

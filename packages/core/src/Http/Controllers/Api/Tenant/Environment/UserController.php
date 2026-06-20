@@ -12,6 +12,7 @@ use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -43,6 +44,10 @@ class UserController extends Controller
             $tenant_plan = $this->getNonModelRequestData('tenant_plan', $userData);
             $env_role = $this->getNonModelRequestData('environment_role', $userData);
             $env_plan = $this->getNonModelRequestData('environment_plan', $userData);
+
+            RoleAssignments::ensureAssignable($request->user(), $tenant_role, 'tenant_role', $tenant);
+            RoleAssignments::ensureAssignable($request->user(), $env_role, 'environment_role', $tenant, $environment);
+
             // create resource
             $user = User::query()->create($userData);
             $tenant->users()->attach($user, ['role_id' => $tenant_role, 'plan_id' => $tenant_plan]);

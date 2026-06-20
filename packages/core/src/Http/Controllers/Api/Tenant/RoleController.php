@@ -11,6 +11,7 @@ use Froxlor\Core\Http\Requests\UpdateRoleRequest;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
+use Froxlor\Core\Support\RoleAssignments;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
@@ -87,6 +88,7 @@ class RoleController extends Controller
     public function destroy(Request $request, Tenant $tenant, Role $role)
     {
         Gate::authorize('tenantDelete', [$role, $tenant]);
+        RoleAssignments::ensureNotAssigned($role);
 
         $role->delete();
         event(new ResourceDeleted($role, []));

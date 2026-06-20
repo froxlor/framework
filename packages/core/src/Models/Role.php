@@ -84,6 +84,11 @@ class Role extends Model
             ['key' => 'tenants.' . $basePermKey . '.store', 'name' => 'Create tenant ' . $basePermKey],
             ['key' => 'tenants.' . $basePermKey . '.update', 'name' => 'Update tenant ' . $basePermKey],
             ['key' => 'tenants.' . $basePermKey . '.destroy', 'name' => 'Delete tenant ' . $basePermKey],
+            // tenant role-permissions permissions for this resource
+            ['key' => 'tenants.' . $basePermKey . '.permissions.*', 'name' => 'Manage permissions in tenant ' . $basePermKey],
+            ['key' => 'tenants.' . $basePermKey . '.permissions.index', 'name' => 'View permissions in tenant ' . $basePermKey],
+            ['key' => 'tenants.' . $basePermKey . '.permissions.store', 'name' => 'Add permissions to tenant ' . $basePermKey],
+            ['key' => 'tenants.' . $basePermKey . '.permissions.destroy', 'name' => 'Delete permissions in tenant ' . $basePermKey],
         ];
     }
 }

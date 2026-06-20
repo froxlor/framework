@@ -22,6 +22,7 @@ use Froxlor\Core\Policies\UserPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
+use Froxlor\Core\Support\PermissionRegistry;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
 use Froxlor\UI\Support\UI;
@@ -58,6 +59,9 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         // Language
         $this->loadTranslationsFrom(__DIR__ . '/../../lang', 'froxlor-core');
+
+        // Permissions
+        PermissionRegistry::registerPackageModelsFrom(dirname(__DIR__, 3));
 
         // Blade components
         Blade::componentNamespace('Froxlor\\Core\\Views\\Components', 'froxlor-core');
