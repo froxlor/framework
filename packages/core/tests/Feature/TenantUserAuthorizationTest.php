@@ -67,7 +67,7 @@ class TenantUserAuthorizationTest extends TestCase
             ->assertCreated();
     }
 
-    public function test_tenant_user_plan_must_be_tenant_scope_and_within_tenant_plan(): void
+    public function test_tenant_user_plan_must_stay_within_tenant_plan(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();

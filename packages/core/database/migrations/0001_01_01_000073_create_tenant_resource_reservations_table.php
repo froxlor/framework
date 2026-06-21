@@ -16,10 +16,11 @@ return new class extends Migration {
             $table->ulid('reserved_for_tenant_id')->index();
             $table->ulid('plan_id')->index();
             $table->string('resource_key')->index();
+            $table->string('resource_type')->index();
             $table->bigInteger('limit')->default(0);
             $table->timestamps();
 
-            $table->unique(['tenant_id', 'reserved_for_tenant_id', 'resource_key'], 'tenant_resource_reservation_unique');
+            $table->unique(['tenant_id', 'reserved_for_tenant_id', 'resource_key', 'resource_type'], 'tenant_resource_reservation_unique');
 
             $table->foreign('tenant_id')->references('id')->on('tenants')->onDelete('cascade');
             $table->foreign('reserved_for_tenant_id')->references('id')->on('tenants')->onDelete('cascade');

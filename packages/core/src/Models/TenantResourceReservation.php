@@ -8,16 +8,18 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 /**
- * Reserved tenant-scope quota delegated from a tenant to one direct child tenant.
+ * Reserved quota delegated from a tenant to one direct child tenant.
  *
- * Actual usage remains in `tenant_usage`; reservations represent budget that is no
- * longer available to the parent because it has been assigned to a child tenant.
+ * Actual usage remains in the scope-specific usage tables; reservations represent
+ * budget that is no longer available to the parent because it has been assigned to a
+ * child tenant.
  *
  * @property string $id
  * @property string $tenant_id
  * @property string $reserved_for_tenant_id
  * @property string $plan_id
  * @property string $resource_key
+ * @property string $resource_type
  * @property int $limit
  * @property Carbon $created_at
  * @property Carbon $updated_at

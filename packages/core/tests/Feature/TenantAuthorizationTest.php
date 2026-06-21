@@ -114,6 +114,45 @@ class TenantAuthorizationTest extends TestCase
             'reserved_for_tenant_id' => $childTenantId,
             'plan_id' => $plan->id,
             'resource_key' => $resourceKey,
+            'resource_type' => 'tenant',
+            'limit' => 2,
+        ]);
+    }
+
+    public function test_child_tenant_creation_reserves_environment_resource_budget(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->firstOrFail()->id]);
+        $resourceKey = 'environment-reservation-test-' . str()->ulid();
+        $resource = Resource::query()->create([
+            'key' => $resourceKey,
+            'name' => 'Environment Reservation Test Resource',
+            'model_type' => Tenant::class,
+            'type' => 'environment',
+        ]);
+        $tenant->plan->resources()->attach($resource, ['limit' => 2]);
+        $plan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Reserved Child Environment Plan ' . str()->ulid(),
+        ]);
+        $plan->resources()->attach($resource, ['limit' => 2]);
+
+        $childTenantId = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants', [
+                'parent_tenant_id' => $tenant->id,
+                'plan_id' => $plan->id,
+                'name' => 'Reserved Child Environment Tenant ' . str()->ulid(),
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        $this->assertDatabaseHas('tenant_resource_reservations', [
+            'tenant_id' => $tenant->id,
+            'reserved_for_tenant_id' => $childTenantId,
+            'plan_id' => $plan->id,
+            'resource_key' => $resourceKey,
+            'resource_type' => 'environment',
             'limit' => 2,
         ]);
     }
@@ -142,6 +181,7 @@ class TenantAuthorizationTest extends TestCase
             'reserved_for_tenant_id' => Tenant::query()->where('name', 'Kunde #2')->firstOrFail()->id,
             'plan_id' => $plan->id,
             'resource_key' => $resourceKey,
+            'resource_type' => 'tenant',
             'limit' => 1,
         ]);
 

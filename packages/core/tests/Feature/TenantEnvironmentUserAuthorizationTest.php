@@ -121,7 +121,7 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
             ->assertJsonValidationErrors(['tenant_role']);
     }
 
-    public function test_environment_user_plan_must_be_environment_scope_and_within_environment_plan(): void
+    public function test_environment_user_plan_must_stay_within_environment_plan(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $environment = Environment::query()

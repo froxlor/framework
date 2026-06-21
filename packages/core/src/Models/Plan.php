@@ -5,6 +5,7 @@ namespace Froxlor\Core\Models;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
 use Froxlor\Core\Services\Traits\IsTenantResource;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
