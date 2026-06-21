@@ -30,17 +30,16 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('tenants.roles', Api\Tenant\RoleController::class);
     Route::apiResource('tenants.roles.permissions', Api\Tenant\Role\RolePermissionController::class)->only(['index', 'store', 'destroy']);
 
+    Route::get('plans/resources', [Api\ResourceController::class, 'index'])->name('plans.resources.available');
     Route::apiResource('plans', Api\PlanController::class);
     Route::apiResource('plans.resources', Api\Plan\PlanResourceController::class)->only(['index', 'store', 'destroy']);
+    Route::apiResource('plans.users', Api\Plan\UserController::class)->only(['index']);
     Route::apiResource('roles/permissions', Api\PermissionController::class)->only(['index'])->names([
         'index' => 'roles.permissions.available',
     ]);
     Route::apiResource('roles', Api\RoleController::class);
     Route::apiResource('roles.permissions', Api\Role\RolePermissionController::class)->only(['index', 'store', 'destroy']);
     Route::apiResource('roles.users', Api\Role\UserController::class)->only(['index']);
-
-    Route::apiResource('resources', Api\ResourceController::class);
-
 //    Route::get('user', [Api\UserController::class, 'showCurrent'])->name('users.show-current');
 //    Route::put('user', [Api\UserController::class, 'updateCurrent'])->name('users.update-current');
 //    Route::apiResource('users', Api\UserController::class);

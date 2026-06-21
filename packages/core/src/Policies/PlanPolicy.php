@@ -55,6 +55,11 @@ class PlanPolicy
             && $user->hasPermission('plans.resources.index');
     }
 
+    public function availableResourcesViewAny(User $user): bool
+    {
+        return $user->hasPermission('plans.resources.index');
+    }
+
     public function resourceCreate(User $user, Plan $plan): bool
     {
         return $plan->tenant_id === null
@@ -65,6 +70,12 @@ class PlanPolicy
     {
         return $plan->tenant_id === null
             && $user->hasPermission('plans.resources.destroy');
+    }
+
+    public function usersViewAny(User $user, Plan $plan): bool
+    {
+        return $plan->tenant_id === null
+            && $user->hasPermission('plans.users.index');
     }
 
     public function tenantViewAny(User $user, Tenant $tenant): bool

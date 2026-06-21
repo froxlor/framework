@@ -11,6 +11,7 @@ use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -79,6 +80,7 @@ class PlansController extends Controller
     public function destroy(Request $request, Tenant $tenant, Environment $environment, Plan $plan)
     {
         Gate::authorize('tenantEnvDelete', [$plan, $tenant, $environment]);
+        PlanAssignments::ensureNotAssigned($plan);
 
         $plan->delete();
         event(new ResourceDeleted($plan, []));

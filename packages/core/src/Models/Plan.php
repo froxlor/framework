@@ -67,6 +67,8 @@ class Plan extends Model
             ['key' => 'plans.resources.index', 'name' => 'View plan resources'],
             ['key' => 'plans.resources.store', 'name' => 'Assign plan resources'],
             ['key' => 'plans.resources.destroy', 'name' => 'Remove plan resources'],
+            ['key' => 'plans.users.*', 'name' => 'Manage plan users'],
+            ['key' => 'plans.users.index', 'name' => 'View plan users'],
         ];
     }
 

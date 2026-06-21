@@ -86,4 +86,29 @@ class TenantEnvironmentPlanAuthorizationTest extends TestCase
             ->deleteJson($basePath . '/' . $plan->id)
             ->assertForbidden();
     }
+
+    public function test_assigned_environment_plan_cannot_be_deleted(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $environment = Environment::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('name', 'Kunden Environment')
+            ->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $plan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Assigned Environment Plan ' . str()->ulid(),
+            'type' => 'environment',
+        ]);
+        $originalPlanId = $environment->plan_id;
+
+        $environment->update(['plan_id' => $plan->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id . '/plans/' . $plan->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan']);
+
+        $environment->update(['plan_id' => $originalPlanId]);
+    }
 }
