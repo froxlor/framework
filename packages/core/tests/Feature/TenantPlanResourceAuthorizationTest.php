@@ -16,7 +16,6 @@ class TenantPlanResourceAuthorizationTest extends TestCase
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Resource Plan ' . str()->ulid(),
         ]);
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
@@ -54,7 +53,6 @@ class TenantPlanResourceAuthorizationTest extends TestCase
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Resource Listing Plan ' . str()->ulid(),
         ]);
         $assignedResource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
@@ -84,10 +82,9 @@ class TenantPlanResourceAuthorizationTest extends TestCase
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
         $foreignPlan = Plan::query()->create([
             'tenant_id' => $otherTenant->id,
-            'type' => 'tenant',
             'name' => 'Foreign Tenant Resource Plan ' . str()->ulid(),
         ]);
-        $globalPlan = Plan::query()->whereNull('tenant_id')->where('type', 'tenant')->firstOrFail();
+        $globalPlan = Plan::query()->whereNull('tenant_id')->firstOrFail();
 
         $this->actingAs($user, 'sanctum')
             ->getJson('/api/tenants/' . $tenant->id . '/plans/' . $foreignPlan->id . '/resources')
@@ -110,7 +107,6 @@ class TenantPlanResourceAuthorizationTest extends TestCase
         ]);
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Resource Limit Plan ' . str()->ulid(),
         ]);
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
@@ -130,7 +126,6 @@ class TenantPlanResourceAuthorizationTest extends TestCase
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Unassigned Tenant Resource Plan ' . str()->ulid(),
         ]);
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'roles')->firstOrFail();

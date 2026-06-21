@@ -94,6 +94,7 @@ class TenantAndUsersTableSeeder extends Seeder
             'role_id' => Role::query()->where('name', 'Super-Admin')->first()->id, // Super-Admin role for the users on this tenant
             'plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->first()->id
         ]);
+
     }
 
 }

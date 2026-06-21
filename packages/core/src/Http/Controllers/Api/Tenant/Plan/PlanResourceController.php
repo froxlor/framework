@@ -18,7 +18,7 @@ use Illuminate\Validation\ValidationException;
 class PlanResourceController extends Controller
 {
     /**
-     * Display every tenant-usable resource matching the plan type and mark assignments.
+     * Display every available resource and mark assignments.
      */
     public function index(Request $request, Tenant $tenant, Plan $plan)
     {
@@ -38,7 +38,7 @@ class PlanResourceController extends Controller
             ]);
 
         $resources = Resource::query()
-            ->where('type', $plan->type)
+            ->orderBy('type')
             ->orderBy('key')
             ->get()
             ->map(function (Resource $resource) use ($assignedResources) {

@@ -23,7 +23,6 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('tenants.environments', Api\Tenant\EnvironmentController::class);
     Route::apiResource('tenants.environments.audit-log', Api\Tenant\Environment\AuditLogController::class)->only(['index']);
     Route::apiResource('tenants.environments.users', Api\Tenant\Environment\UserController::class);
-    Route::apiResource('tenants.environments.plans', Api\Tenant\Environment\PlansController::class);
     Route::apiResource('tenants.users', Api\Tenant\UserController::class);
     Route::apiResource('tenants.plans', Api\Tenant\PlanController::class);
     Route::apiResource('tenants.plans.resources', Api\Tenant\Plan\PlanResourceController::class)->only(['index', 'store', 'destroy']);

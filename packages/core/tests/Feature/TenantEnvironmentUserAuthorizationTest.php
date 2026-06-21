@@ -136,7 +136,6 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
 
         $parentPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'environment',
             'name' => 'Environment Parent User Plan ' . str()->ulid(),
         ]);
         $parentPlan->resources()->attach($resource, ['limit' => 2]);
@@ -144,24 +143,20 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
 
         $validPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'environment',
             'name' => 'Environment Child User Plan ' . str()->ulid(),
         ]);
         $validPlan->resources()->attach($resource, ['limit' => 1]);
 
         $tooLargePlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'environment',
             'name' => 'Environment Too Large User Plan ' . str()->ulid(),
         ]);
         $tooLargePlan->resources()->attach($resource, ['limit' => 3]);
-
-        $wrongTypePlan = Plan::query()->create([
-            'tenant_id' => $tenant->id,
-            'type' => 'tenant',
-            'name' => 'Wrong Environment User Plan Type ' . str()->ulid(),
+        $foreignPlan = Plan::query()->create([
+            'tenant_id' => Tenant::query()->where('name', 'Kunde #2')->firstOrFail()->id,
+            'name' => 'Foreign Environment User Plan ' . str()->ulid(),
         ]);
-        $wrongTypePlan->resources()->attach($resource, ['limit' => 1]);
+        $foreignPlan->resources()->attach($resource, ['limit' => 1]);
 
         $this->actingAs($user, 'sanctum')
             ->postJson($basePath, [
@@ -191,12 +186,12 @@ class TenantEnvironmentUserAuthorizationTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson($basePath, [
                 'first_name' => 'Forbidden',
-                'last_name' => 'Wrong Environment Plan User',
-                'email' => 'environment-wrong-plan-user-' . str()->ulid() . '@froxlor.test',
+                'last_name' => 'Foreign Environment Plan User',
+                'email' => 'environment-foreign-plan-user-' . str()->ulid() . '@froxlor.test',
                 'password' => 'secret-password',
                 'tenant_role' => $tenantRole->id,
                 'environment_role' => $environmentRole->id,
-                'environment_plan' => $wrongTypePlan->id,
+                'environment_plan' => $foreignPlan->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['environment_plan']);

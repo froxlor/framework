@@ -24,16 +24,8 @@ class PlanController extends Controller
     {
         Gate::authorize('tenantViewAny', [Plan::class, $tenant]);
 
-        $type = $request->query('type', '');
         $tenantPlans = Plan::query()->where('tenant_id', '=', $tenant->id);
-        if (!empty($type) && in_array($type, ['environment', 'tenant'])) {
-            $tenantPlans->where('type', '=', $type)
-                ->with('resources', function ($query) use ($type) {
-                    return $query->where('resources.type', '=', $type);
-                });
-        } else {
-            $tenantPlans->with('resources');
-        }
+        $tenantPlans->with('resources');
         return Response::jsonResourceCollection($tenantPlans);
     }
 

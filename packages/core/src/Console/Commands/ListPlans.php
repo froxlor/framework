@@ -60,10 +60,9 @@ class ListPlans extends Command
             ->orderBy('name')
             ->get();
 
-        $this->table(['ID', 'Name', 'Type', 'Tenant ID', 'Resources'], $plans->map(fn(Plan $plan) => [
+        $this->table(['ID', 'Name', 'Tenant ID', 'Resources'], $plans->map(fn(Plan $plan) => [
             $plan->id,
             $plan->name,
-            $plan->type,
             $plan->tenant_id ?? 'global',
             $plan->resources_count,
         ]));
@@ -144,7 +143,6 @@ class ListPlans extends Command
         }
 
         $this->info($plan->name . ' (' . $plan->id . ')');
-        $this->line('Type: ' . $plan->type);
         $this->line('Tenant: ' . ($plan->tenant_id ?? 'global'));
         $this->newLine();
 

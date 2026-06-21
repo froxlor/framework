@@ -36,7 +36,6 @@ class PlanAuthorizationTest extends TestCase
         $planId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/plans', [
                 'name' => $name,
-                'type' => 'tenant',
                 'description' => 'Created by PlanAuthorizationTest',
             ])
             ->assertCreated()
@@ -70,25 +69,6 @@ class PlanAuthorizationTest extends TestCase
             ->deleteJson('/api/plans/' . $plan->id)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan']);
-
-        $tenant->update(['plan_id' => $originalPlanId]);
-    }
-
-    public function test_assigned_global_plan_type_cannot_be_changed(): void
-    {
-        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
-        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Platform Unlimited')->firstOrFail();
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $originalPlanId = $tenant->plan_id;
-
-        $tenant->update(['plan_id' => $plan->id]);
-
-        $this->actingAs($user, 'sanctum')
-            ->putJson('/api/plans/' . $plan->id, [
-                'type' => 'environment',
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['type']);
 
         $tenant->update(['plan_id' => $originalPlanId]);
     }
@@ -148,7 +128,6 @@ class PlanAuthorizationTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/plans', [
                 'name' => 'Forbidden Policy Test Plan ' . str()->ulid(),
-                'type' => 'tenant',
             ])
             ->assertForbidden();
 

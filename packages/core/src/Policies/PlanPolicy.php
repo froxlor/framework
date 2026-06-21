@@ -2,7 +2,6 @@
 
 namespace Froxlor\Core\Policies;
 
-use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
@@ -142,40 +141,4 @@ class PlanPolicy
         return $this->hasScopedPermission($user, 'tenants.plans.resources.destroy', $tenant);
     }
 
-    public function tenantEnvViewAny(User $user, Tenant $tenant, Environment $environment): bool
-    {
-        return $this->hasScopedPermission($user, 'tenants.environments.plans.index', $tenant, $environment);
-    }
-
-    public function tenantEnvView(User $user, Plan $plan, Tenant $tenant, Environment $environment): bool
-    {
-        if ($plan->tenant_id !== $tenant->id || $plan->type !== 'environment') {
-            return false;
-        }
-
-        return $this->hasScopedPermission($user, 'tenants.environments.plans.index', $tenant, $environment);
-    }
-
-    public function tenantEnvCreate(User $user, Tenant $tenant, Environment $environment): bool
-    {
-        return $this->hasScopedPermission($user, 'tenants.environments.plans.store', $tenant, $environment);
-    }
-
-    public function tenantEnvUpdate(User $user, Plan $plan, Tenant $tenant, Environment $environment): bool
-    {
-        if ($plan->tenant_id !== $tenant->id || $plan->type !== 'environment') {
-            return false;
-        }
-
-        return $this->hasScopedPermission($user, 'tenants.environments.plans.update', $tenant, $environment);
-    }
-
-    public function tenantEnvDelete(User $user, Plan $plan, Tenant $tenant, Environment $environment): bool
-    {
-        if ($plan->tenant_id !== $tenant->id || $plan->type !== 'environment') {
-            return false;
-        }
-
-        return $this->hasScopedPermission($user, 'tenants.environments.plans.destroy', $tenant, $environment);
-    }
 }

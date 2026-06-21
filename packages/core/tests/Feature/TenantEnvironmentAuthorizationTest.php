@@ -21,6 +21,10 @@ class TenantEnvironmentAuthorizationTest extends TestCase
         if (!in_array(FakeNodeAdapter::class, Node::adapters(), true)) {
             Node::registerAdapter(FakeNodeAdapter::class);
         }
+
+        Tenant::query()
+            ->where('name', 'First customer')
+            ->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
     }
 
     public function test_tenant_admin_can_manage_environment(): void
@@ -161,20 +165,14 @@ class TenantEnvironmentAuthorizationTest extends TestCase
             ->assertJsonValidationErrors(['node_id']);
     }
 
-    public function test_tenant_admin_cannot_assign_foreign_or_wrong_type_environment_plan(): void
+    public function test_tenant_admin_cannot_assign_foreign_environment_plan(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $otherTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $foreignPlan = Plan::query()->create([
             'tenant_id' => $otherTenant->id,
-            'type' => 'environment',
             'name' => 'Foreign Environment Plan ' . str()->ulid(),
-        ]);
-        $wrongTypePlan = Plan::query()->create([
-            'tenant_id' => $tenant->id,
-            'type' => 'tenant',
-            'name' => 'Wrong Type Environment Plan ' . str()->ulid(),
         ]);
 
         $this->actingAs($user, 'sanctum')
@@ -184,17 +182,9 @@ class TenantEnvironmentAuthorizationTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);
-
-        $this->actingAs($user, 'sanctum')
-            ->postJson('/api/tenants/' . $tenant->id . '/environments', [
-                'name' => 'Rejected Wrong Type Plan Environment ' . str()->ulid(),
-                'plan_id' => $wrongTypePlan->id,
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['plan_id']);
     }
 
-    public function test_tenant_admin_cannot_update_environment_to_foreign_or_wrong_type_environment_plan(): void
+    public function test_tenant_admin_cannot_update_environment_to_foreign_environment_plan(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $otherTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
@@ -205,25 +195,12 @@ class TenantEnvironmentAuthorizationTest extends TestCase
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $foreignPlan = Plan::query()->create([
             'tenant_id' => $otherTenant->id,
-            'type' => 'environment',
             'name' => 'Foreign Update Environment Plan ' . str()->ulid(),
-        ]);
-        $wrongTypePlan = Plan::query()->create([
-            'tenant_id' => $tenant->id,
-            'type' => 'tenant',
-            'name' => 'Wrong Update Type Environment Plan ' . str()->ulid(),
         ]);
 
         $this->actingAs($user, 'sanctum')
             ->putJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id, [
                 'plan_id' => $foreignPlan->id,
-            ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['plan_id']);
-
-        $this->actingAs($user, 'sanctum')
-            ->putJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id, [
-                'plan_id' => $wrongTypePlan->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);
@@ -235,12 +212,10 @@ class TenantEnvironmentAuthorizationTest extends TestCase
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenantPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'environment',
             'name' => 'Available Environment Plan ' . str()->ulid(),
         ]);
         $globalPlan = Plan::query()->create([
             'tenant_id' => null,
-            'type' => 'environment',
             'name' => 'Global Available Environment Plan ' . str()->ulid(),
         ]);
 

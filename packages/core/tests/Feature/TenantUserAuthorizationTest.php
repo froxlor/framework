@@ -76,7 +76,6 @@ class TenantUserAuthorizationTest extends TestCase
 
         $parentPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Parent User Plan ' . str()->ulid(),
         ]);
         $parentPlan->resources()->attach($resource, ['limit' => 2]);
@@ -84,31 +83,21 @@ class TenantUserAuthorizationTest extends TestCase
 
         $validPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Child User Plan ' . str()->ulid(),
         ]);
         $validPlan->resources()->attach($resource, ['limit' => 1]);
 
         $tooLargePlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Too Large User Plan ' . str()->ulid(),
         ]);
         $tooLargePlan->resources()->attach($resource, ['limit' => 3]);
 
         $unlimitedPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Tenant Unlimited User Plan ' . str()->ulid(),
         ]);
         $unlimitedPlan->resources()->attach($resource, ['limit' => -1]);
-
-        $wrongTypePlan = Plan::query()->create([
-            'tenant_id' => $tenant->id,
-            'type' => 'environment',
-            'name' => 'Wrong Tenant User Plan Type ' . str()->ulid(),
-        ]);
-        $wrongTypePlan->resources()->attach($resource, ['limit' => 1]);
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/users', [
@@ -152,7 +141,7 @@ class TenantUserAuthorizationTest extends TestCase
                 'email' => 'tenant-wrong-type-plan-user-' . str()->ulid() . '@froxlor.test',
                 'password' => 'secret-password',
                 'role_id' => $role->id,
-                'plan_id' => $wrongTypePlan->id,
+                'plan_id' => Plan::query()->whereNull('tenant_id')->firstOrFail()->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);

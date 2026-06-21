@@ -31,6 +31,8 @@ use Illuminate\Support\Facades\DB;
  * @property Collection<Role> $roles
  * @property Collection<TenantUser> $users
  * @property Collection<TenantUsage> $tenantUsages
+ * @property Collection<TenantResourceReservation> $resourceReservations
+ * @property Collection<TenantResourceReservation> $receivedResourceReservations
  * @property Collection<Tenant> $subTenants
  * @property Collection<Tenant> $allSubTenants
  * @property Tenant|null $parentTenant
@@ -85,6 +87,22 @@ class Tenant extends Model
     public function tenantUsages(): HasMany
     {
         return $this->hasMany(TenantUsage::class);
+    }
+
+    /**
+     * Quota this tenant has delegated to direct child tenants.
+     */
+    public function resourceReservations(): HasMany
+    {
+        return $this->hasMany(TenantResourceReservation::class);
+    }
+
+    /**
+     * Quota reserved by this tenant's parent for this tenant.
+     */
+    public function receivedResourceReservations(): HasMany
+    {
+        return $this->hasMany(TenantResourceReservation::class, 'reserved_for_tenant_id');
     }
 
     public function tenantUsageList(): Attribute

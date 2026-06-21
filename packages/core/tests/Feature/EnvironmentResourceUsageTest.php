@@ -42,7 +42,6 @@ class EnvironmentResourceUsageTest extends TestCase
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
         $plan = Plan::query()->create([
             'name' => 'Single Environment Limit ' . str()->ulid(),
-            'type' => 'tenant',
         ]);
         $plan->resources()->attach($resource, ['limit' => 1]);
         $tenant->update(['plan_id' => $plan->id]);

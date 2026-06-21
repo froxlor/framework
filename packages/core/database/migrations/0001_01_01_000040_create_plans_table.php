@@ -14,13 +14,12 @@ return new class extends Migration
         Schema::create('plans', function (Blueprint $table) {
             $table->ulid('id')->primary();
             $table->ulid('tenant_id')->nullable()->index();
-            $table->enum('type', ['tenant', 'environment'])->default('environment');
             $table->string('name');
             $table->string('description')->nullable();
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['tenant_id', 'type', 'name']);
+            $table->unique(['tenant_id', 'name']);
         });
 
         Schema::table('environments', function (Blueprint $table) {

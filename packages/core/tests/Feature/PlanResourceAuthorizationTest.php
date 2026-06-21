@@ -13,7 +13,7 @@ class PlanResourceAuthorizationTest extends TestCase
     public function test_super_admin_can_manage_global_plan_resources(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();
-        $plan = Plan::query()->whereNull('tenant_id')->where('type', 'tenant')->where('name', 'Tenant Starter')->firstOrFail();
+        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Tenant Starter')->firstOrFail();
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
         $basePath = '/api/plans/' . $plan->id . '/resources';
 
@@ -51,7 +51,7 @@ class PlanResourceAuthorizationTest extends TestCase
     public function test_plan_resource_index_lists_assigned_and_unassigned_resources(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();
-        $plan = Plan::query()->whereNull('tenant_id')->where('type', 'tenant')->where('name', 'Tenant Starter')->firstOrFail();
+        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Tenant Starter')->firstOrFail();
         $assignedResource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
         $unassignedResource = Resource::query()->where('type', 'tenant')->where('key', 'roles')->firstOrFail();
 
@@ -80,7 +80,6 @@ class PlanResourceAuthorizationTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
-            'type' => 'tenant',
             'name' => 'Global Route Tenant Plan ' . str()->ulid(),
         ]);
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
@@ -97,10 +96,10 @@ class PlanResourceAuthorizationTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_plan_resource_type_must_match_plan_type(): void
+    public function test_global_plan_can_assign_environment_resource(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();
-        $plan = Plan::query()->whereNull('tenant_id')->where('type', 'tenant')->where('name', 'Tenant Starter')->firstOrFail();
+        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Tenant Starter')->firstOrFail();
         $resource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
 
         $this->actingAs($user, 'sanctum')
@@ -108,14 +107,13 @@ class PlanResourceAuthorizationTest extends TestCase
                 'resource_id' => $resource->id,
                 'limit' => 1,
             ])
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors(['resource_id']);
+            ->assertOk();
     }
 
     public function test_detaching_unassigned_global_plan_resource_returns_validation_error(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();
-        $plan = Plan::query()->whereNull('tenant_id')->where('type', 'tenant')->where('name', 'Tenant Starter')->firstOrFail();
+        $plan = Plan::query()->whereNull('tenant_id')->where('name', 'Tenant Starter')->firstOrFail();
         $resource = Resource::query()->where('type', 'tenant')->where('key', 'roles')->firstOrFail();
 
         $plan->resources()->detach($resource);

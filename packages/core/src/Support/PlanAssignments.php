@@ -6,6 +6,7 @@ use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Models\TenantResourceReservation;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -15,8 +16,8 @@ class PlanAssignments
      * Ensure that a plan can be assigned as an optional tenant-user limit plan.
      *
      * Tenant users inherit the tenant plan when no explicit plan is assigned. When an
-     * explicit plan is assigned, it must be a tenant-scope plan available in the tenant
-     * context and it must not grant more resources than the tenant's own plan.
+     * explicit plan is assigned, it must be available in the tenant context and its
+     * tenant-scope resources must not exceed the tenant's own plan.
      *
      * @throws ValidationException
      */
@@ -28,11 +29,11 @@ class PlanAssignments
 
         $plan = Plan::query()->with('resources')->findOrFail($planId);
 
-        if (!$plan->isTenantPlan() || !$plan->isAvailableForTenant($tenant)) {
+        if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, 'The selected plan is not available for this tenant.');
         }
 
-        self::ensureWithinParentPlan($plan, $tenant->plan, $field);
+        self::ensureWithinParentPlan($plan, $tenant->plan, $field, 'tenant');
     }
 
     /**
@@ -56,11 +57,11 @@ class PlanAssignments
 
         $plan = Plan::query()->with('resources')->findOrFail($planId);
 
-        if (!$plan->isEnvironmentPlan() || !$plan->isAvailableForTenant($tenant)) {
+        if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, 'The selected plan is not available for this environment.');
         }
 
-        self::ensureWithinParentPlan($plan, $environment->plan, $field);
+        self::ensureWithinParentPlan($plan, $environment->plan, $field, 'environment');
     }
 
     /**
@@ -79,6 +80,7 @@ class PlanAssignments
             'environments' => DB::table('environments')->where('plan_id', $plan->id)->count(),
             'tenant users' => DB::table('tenant_user')->where('plan_id', $plan->id)->count(),
             'environment users' => DB::table('environment_user')->where('plan_id', $plan->id)->count(),
+            'tenant reservations' => DB::table('tenant_resource_reservations')->where('plan_id', $plan->id)->count(),
         ];
 
         $usedBy = collect($assignments)
@@ -94,9 +96,10 @@ class PlanAssignments
     /**
      * Ensure a resource can be attached to the given plan with the requested limit.
      *
-     * Plan resources must match the plan scope. For tenant-owned tenant plans, the
-     * resource limit must also stay within the owning tenant's assigned plan so tenants
-     * cannot create child plans that grant more tenant-scope capacity than they own.
+     * For tenant-owned plans, tenant-scope resource limits must stay within the owning
+     * tenant's assigned plan so tenants cannot create child plans that grant more
+     * tenant-scope capacity than they own. Environment-scope resources are ignored by
+     * tenant budget reservations and are checked when assigned in an environment context.
      *
      * @throws ValidationException
      */
@@ -107,11 +110,7 @@ class PlanAssignments
         ?Tenant $tenant = null,
         string $field = 'resource_id',
     ): void {
-        if ($resource->type !== $plan->type) {
-            throw self::validationException($field, 'The selected resource is not available for this plan type.');
-        }
-
-        if ($tenant === null || !$plan->isTenantPlan() || $limit === 0) {
+        if ($tenant === null || $resource->type !== 'tenant' || $limit === 0) {
             return;
         }
 
@@ -122,6 +121,7 @@ class PlanAssignments
 
         $parentResource = $parentPlan->resources()
             ->where('resources.key', $resource->key)
+            ->where('resources.type', 'tenant')
             ->first();
         $parentLimit = $parentResource === null ? null : (int)$parentResource->pivot->limit;
 
@@ -148,17 +148,22 @@ class PlanAssignments
      *
      * @throws ValidationException
      */
-    public static function ensureWithinParentPlan(Plan $childPlan, ?Plan $parentPlan, string $field = 'plan_id'): void
+    public static function ensureWithinParentPlan(Plan $childPlan, ?Plan $parentPlan, string $field = 'plan_id', ?string $resourceType = null): void
     {
         if ($parentPlan === null) {
             throw self::validationException($field, 'The selected plan cannot be assigned without a parent plan.');
         }
 
         $parentResources = $parentPlan->resources()
+            ->when($resourceType !== null, fn($query) => $query->where('resources.type', $resourceType))
             ->get()
             ->mapWithKeys(fn($resource) => [$resource->key => (int)$resource->pivot->limit]);
 
-        foreach ($childPlan->resources as $childResource) {
+        $childResources = $childPlan->resources()
+            ->when($resourceType !== null, fn($query) => $query->where('resources.type', $resourceType))
+            ->get();
+
+        foreach ($childResources as $childResource) {
             $childLimit = (int)$childResource->pivot->limit;
 
             if ($childLimit === 0) {
@@ -179,6 +184,160 @@ class PlanAssignments
                 throw self::validationException($field, 'The selected plan grants resource limits above the parent plan.');
             }
         }
+    }
+
+    /**
+     * Ensure a tenant-owned plan can be assigned to a direct child tenant.
+     *
+     * Tenant-owned plans are reusable templates. Quota is not reserved while the plan
+     * exists; reservation happens only when the plan is assigned to a child tenant. The
+     * plan must belong to the parent tenant, its tenant-scope resources must fit within
+     * the parent's own plan, and those tenant resources must fit into the parent's
+     * currently available budget after real usage and existing child reservations are
+     * subtracted.
+     *
+     * @throws ValidationException
+     */
+    public static function ensureAssignableToChildTenant(Plan $plan, Tenant $parentTenant, ?Tenant $childTenant = null, string $field = 'plan_id'): void
+    {
+        if ($plan->tenant_id !== $parentTenant->id) {
+            throw self::validationException($field, 'The selected plan is not available for child tenants.');
+        }
+
+        self::ensureWithinParentPlan($plan->loadMissing('resources'), $parentTenant->plan, $field, 'tenant');
+        self::ensureWithinAvailableTenantBudget($plan, $parentTenant, $childTenant, $field);
+    }
+
+    /**
+     * Ensure a plan can be used inside the tenant context.
+     *
+     * @throws ValidationException
+     */
+    public static function ensurePlanAvailableForTenant(?string $planId, Tenant $tenant, string $field = 'plan_id'): void
+    {
+        if ($planId === null) {
+            return;
+        }
+
+        $plan = Plan::query()->findOrFail($planId);
+
+        if (!$plan->isAvailableForTenant($tenant)) {
+            throw self::validationException($field, trans('validation.exists', ['attribute' => $field]));
+        }
+    }
+
+    /**
+     * Persist reservations for every enabled tenant-scope resource in the plan.
+     *
+     * Existing reservations for the same child tenant are replaced so plan changes and
+     * tenant plan switches leave no stale budget assignments behind.
+     */
+    public static function syncTenantReservations(Tenant $parentTenant, Tenant $childTenant, Plan $plan): void
+    {
+        TenantResourceReservation::query()
+            ->where('tenant_id', $parentTenant->id)
+            ->where('reserved_for_tenant_id', $childTenant->id)
+            ->delete();
+
+        foreach (self::planLimits($plan, 'tenant') as $resourceKey => $limit) {
+            if ($limit === 0) {
+                continue;
+            }
+
+            TenantResourceReservation::query()->create([
+                'tenant_id' => $parentTenant->id,
+                'reserved_for_tenant_id' => $childTenant->id,
+                'plan_id' => $plan->id,
+                'resource_key' => $resourceKey,
+                'limit' => $limit,
+            ]);
+        }
+    }
+
+    /**
+     * Drop quota reservations held by the given parent for the child tenant.
+     */
+    public static function removeTenantReservations(Tenant $parentTenant, Tenant $childTenant): void
+    {
+        TenantResourceReservation::query()
+            ->where('tenant_id', $parentTenant->id)
+            ->where('reserved_for_tenant_id', $childTenant->id)
+            ->delete();
+    }
+
+    /**
+     * Return the currently available quota per resource for a tenant.
+     *
+     * Limit semantics are preserved: `-1` stays unlimited, `0` means unavailable, and
+     * positive values are reduced by real usage and delegated child reservations.
+     *
+     * @return array<string, int>
+     */
+    public static function availableTenantBudget(Tenant $tenant, ?Tenant $ignoreChildTenant = null): array
+    {
+        $budget = [];
+
+        foreach (self::planLimits($tenant->plan, 'tenant') as $resourceKey => $limit) {
+            if ($limit === -1) {
+                $budget[$resourceKey] = -1;
+                continue;
+            }
+
+            $used = DB::table('tenant_usage')
+                ->where('tenant_id', $tenant->id)
+                ->where('resource_key', $resourceKey)
+                ->count();
+
+            $reserved = TenantResourceReservation::query()
+                ->where('tenant_id', $tenant->id)
+                ->where('resource_key', $resourceKey)
+                ->when($ignoreChildTenant !== null, fn($query) => $query->where('reserved_for_tenant_id', '!=', $ignoreChildTenant->id))
+                ->sum('limit');
+
+            $budget[$resourceKey] = max(0, $limit - $used - (int)$reserved);
+        }
+
+        return $budget;
+    }
+
+    /**
+     * Ensure the plan's enabled limits fit into the parent's free budget.
+     *
+     * @throws ValidationException
+     */
+    private static function ensureWithinAvailableTenantBudget(Plan $plan, Tenant $parentTenant, ?Tenant $childTenant, string $field): void
+    {
+        $available = self::availableTenantBudget($parentTenant, $childTenant);
+
+        foreach (self::planLimits($plan, 'tenant') as $resourceKey => $limit) {
+            if ($limit === 0) {
+                continue;
+            }
+
+            $availableLimit = $available[$resourceKey] ?? 0;
+
+            if ($availableLimit === -1) {
+                continue;
+            }
+
+            if ($limit === -1 || $limit > $availableLimit) {
+                throw self::validationException($field, 'The selected plan exceeds the parent tenant available resource budget.');
+            }
+        }
+    }
+
+    /**
+     * Return resource limits keyed by resource key for the given plan.
+     *
+     * @return array<string, int>
+     */
+    private static function planLimits(Plan $plan, ?string $resourceType = null): array
+    {
+        return $plan->resources()
+            ->when($resourceType !== null, fn($query) => $query->where('resources.type', $resourceType))
+            ->get()
+            ->mapWithKeys(fn($resource) => [$resource->key => (int)$resource->pivot->limit])
+            ->all();
     }
 
     private static function validationException(string $field, string $message): ValidationException

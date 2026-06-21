@@ -5,7 +5,6 @@ namespace Froxlor\Core\Models;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
 use Froxlor\Core\Services\Traits\IsTenantResource;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -17,7 +16,6 @@ use Illuminate\Support\Collection;
 /**
  * @property string $id
  * @property string|null $tenant_id
- * @property string $type
  * @property string $name
  * @property string|null $description
  * @property Carbon $created_at
@@ -73,14 +71,6 @@ class Plan extends Model
     }
 
     /**
-     * Limit the query to plans usable for environments.
-     */
-    public function scopeEnvironment(Builder $query): Builder
-    {
-        return $query->where('type', 'environment');
-    }
-
-    /**
      * Limit the query to plans usable by the given tenant.
      *
      * Global plans are available to every tenant. Tenant-bound plans are only
@@ -92,22 +82,6 @@ class Plan extends Model
             $query->whereNull('tenant_id')
                 ->orWhere('tenant_id', $tenant->id);
         });
-    }
-
-    /**
-     * Check whether this plan can be assigned to tenant users.
-     */
-    public function isTenantPlan(): bool
-    {
-        return $this->type === 'tenant';
-    }
-
-    /**
-     * Check whether this plan can be assigned to an environment.
-     */
-    public function isEnvironmentPlan(): bool
-    {
-        return $this->type === 'environment';
     }
 
     /**

@@ -81,7 +81,7 @@ class PlansAndResourcesTableSeeder extends Seeder
      */
     public static function createTenantPlan(string $name, array $limits, ?string $tenantId = null): Plan
     {
-        return self::createPlanWithResourceLimits($name, 'tenant', $limits, $tenantId);
+        return self::createPlanWithResourceLimits($name, $limits, $tenantId, 'tenant');
     }
 
     /**
@@ -91,7 +91,7 @@ class PlansAndResourcesTableSeeder extends Seeder
      */
     public static function createEnvironmentPlan(string $name, array $limits, ?string $tenantId = null): Plan
     {
-        return self::createPlanWithResourceLimits($name, 'environment', $limits, $tenantId);
+        return self::createPlanWithResourceLimits($name, $limits, $tenantId, 'environment');
     }
 
     /**
@@ -99,22 +99,25 @@ class PlansAndResourcesTableSeeder extends Seeder
      *
      * @param array<string, int> $limits Resource key to limit map.
      */
-    private static function createPlanWithResourceLimits(string $name, string $type, array $limits, ?string $tenantId = null): Plan
+    private static function createPlanWithResourceLimits(string $name, array $limits, ?string $tenantId = null, ?string $resourceType = null): Plan
     {
         /** @var Plan $plan */
         $plan = Plan::query()->updateOrCreate([
             'tenant_id' => $tenantId,
-            'type' => $type,
             'name' => $name,
         ], [
             'description' => null,
         ]);
 
-        $resources = $type === 'tenant' ? self::tenantResources() : self::environmentResources();
+        $resources = match ($resourceType) {
+            'tenant' => self::tenantResources(),
+            'environment' => self::environmentResources(),
+            default => array_merge(self::tenantResources(), self::environmentResources()),
+        };
 
         foreach ($limits as $key => $limit) {
             if (!isset($resources[$key])) {
-                throw new \InvalidArgumentException('Unknown ' . $type . ' resource key "' . $key . '" for plan "' . $name . '".');
+                throw new \InvalidArgumentException('Unknown resource key "' . $key . '" for plan "' . $name . '".');
             }
 
             $plan->resources()->syncWithoutDetaching([

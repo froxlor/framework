@@ -62,7 +62,6 @@ class NodeResourceUsageTest extends TestCase
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $plan = Plan::query()->create([
             'name' => 'Single Node Limit ' . str()->ulid(),
-            'type' => 'tenant',
         ]);
         $plan->resources()->attach($resource, ['limit' => 1]);
         $tenant->update(['plan_id' => $plan->id]);
