@@ -63,11 +63,7 @@ class PlanResourceController extends Controller
         ]);
 
         $resource = Resource::query()->findOrFail($data['resource_id']);
-        PlanAssignments::ensureResourceCanBeAttached($plan, $resource, (int)$data['limit']);
-
-        $plan->resources()->syncWithoutDetaching([
-            $resource->id => ['limit' => (int)$data['limit']],
-        ]);
+        PlanAssignments::updatePlanResourceLimit($plan, $resource, (int)$data['limit']);
 
         Audit::log('resource "' . $resource->key . '" assigned to plan "' . $plan->name . '"', $plan->tenant, context: [
             'plan_id' => $plan->id,
@@ -93,7 +89,7 @@ class PlanResourceController extends Controller
             ]);
         }
 
-        $plan->resources()->detach($resource);
+        PlanAssignments::removePlanResource($plan, $resource);
 
         Audit::log('resource "' . $resource->key . '" removed from plan "' . $plan->name . '"', $plan->tenant, context: [
             'plan_id' => $plan->id,

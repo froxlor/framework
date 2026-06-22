@@ -16,7 +16,7 @@ class PlansAndResourcesTableSeeder extends Seeder
      */
     public function run(): void
     {
-        BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Unlimited', [
+        $testTenantUnlimited = BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Unlimited', [
             'tenants' => -1,
             'environments' => -1,
             'nodes' => -1,
@@ -24,8 +24,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => -1,
             'roles' => -1,
         ]);
+        BasePlansAndResourcesTableSeeder::attachEnvironmentResourceLimits($testTenantUnlimited, ['users' => -1]);
 
-        BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Limited', [
+        $testTenantLimited = BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Limited', [
             'tenants' => 2,
             'environments' => 2,
             'nodes' => 2,
@@ -33,8 +34,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 2,
             'roles' => 2,
         ]);
+        BasePlansAndResourcesTableSeeder::attachEnvironmentResourceLimits($testTenantLimited, ['users' => 2]);
 
-        BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Minimal', [
+        $testTenantMinimal = BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Minimal', [
             'tenants' => 0,
             'environments' => 1,
             'nodes' => 0,
@@ -42,8 +44,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 1,
             'roles' => 1,
         ]);
+        BasePlansAndResourcesTableSeeder::attachEnvironmentResourceLimits($testTenantMinimal, ['users' => 1]);
 
-        BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Delegation Parent', [
+        $testTenantDelegationParent = BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Delegation Parent', [
             'tenants' => 0,
             'environments' => 5,
             'nodes' => 1,
@@ -51,8 +54,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 5,
             'roles' => 5,
         ]);
+        BasePlansAndResourcesTableSeeder::attachEnvironmentResourceLimits($testTenantDelegationParent, ['users' => 5]);
 
-        BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Delegation Child', [
+        $testTenantDelegationChild = BasePlansAndResourcesTableSeeder::createTenantPlan('Test Tenant Delegation Child', [
             'tenants' => 0,
             'environments' => 2,
             'nodes' => 0,
@@ -60,6 +64,7 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 2,
             'roles' => 2,
         ]);
+        BasePlansAndResourcesTableSeeder::attachEnvironmentResourceLimits($testTenantDelegationChild, ['users' => 2]);
 
         BasePlansAndResourcesTableSeeder::createEnvironmentPlan('Test Environment Unlimited', [
             'users' => -1,

@@ -17,15 +17,16 @@ class PlansAndResourcesTableSeeder extends Seeder
     /**
      * Seed the baseline resource catalog and global production plans.
      *
-     * Tenant plans only contain tenant-scope resources. Environment plans only contain
-     * environment-scope resources. Limit semantics are `0` for no access, `-1` for
-     * unlimited, and positive values for finite limits.
+     * The default plans are split by human-facing use case, but plans themselves are
+     * not scoped. `resources.type` only defines where actual usage is counted. Limit
+     * semantics are `0` for no access, `-1` for unlimited, and positive values for
+     * finite limits.
      */
     public function run(): void
     {
         self::seedResourceCatalog();
 
-        self::createTenantPlan('Platform Unlimited', [
+        $platformUnlimited = self::createTenantPlan('Platform Unlimited', [
             'tenants' => -1,
             'environments' => -1,
             'nodes' => -1,
@@ -33,8 +34,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => -1,
             'roles' => -1,
         ]);
+        self::attachEnvironmentResourceLimits($platformUnlimited, ['users' => -1]);
 
-        self::createTenantPlan('Tenant Standard', [
+        $tenantStandard = self::createTenantPlan('Tenant Standard', [
             'tenants' => 0,
             'environments' => 10,
             'nodes' => 0,
@@ -42,8 +44,9 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 25,
             'roles' => 10,
         ]);
+        self::attachEnvironmentResourceLimits($tenantStandard, ['users' => 10]);
 
-        self::createTenantPlan('Tenant Starter', [
+        $tenantStarter = self::createTenantPlan('Tenant Starter', [
             'tenants' => 0,
             'environments' => 1,
             'nodes' => 0,
@@ -51,6 +54,7 @@ class PlansAndResourcesTableSeeder extends Seeder
             'users' => 3,
             'roles' => 3,
         ]);
+        self::attachEnvironmentResourceLimits($tenantStarter, ['users' => 2]);
 
         self::createEnvironmentPlan('Environment Unlimited', [
             'users' => -1,
@@ -75,7 +79,7 @@ class PlansAndResourcesTableSeeder extends Seeder
     }
 
     /**
-     * Create or update a global or tenant-owned tenant-scope plan.
+     * Create or update a global or tenant-owned plan from tenant-usage resources.
      *
      * @param array<string, int> $limits Resource key to limit map.
      */
@@ -85,7 +89,7 @@ class PlansAndResourcesTableSeeder extends Seeder
     }
 
     /**
-     * Create or update a global or tenant-owned environment-scope plan.
+     * Create or update a global or tenant-owned plan from environment-usage resources.
      *
      * @param array<string, int> $limits Resource key to limit map.
      */
@@ -95,7 +99,21 @@ class PlansAndResourcesTableSeeder extends Seeder
     }
 
     /**
-     * Create a plan and attach resource limits matching the plan scope.
+     * Attach environment-usage resource limits to an existing plan.
+     *
+     * This is used for mixed plans: a tenant plan can carry both tenant-usage and
+     * environment-usage budgets while `resources.type` still decides where actual
+     * usage is counted.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    public static function attachEnvironmentResourceLimits(Plan $plan, array $limits): Plan
+    {
+        return self::attachResourceLimits($plan, $limits, 'environment');
+    }
+
+    /**
+     * Create a plan and attach resource limits matching the requested resource type.
      *
      * @param array<string, int> $limits Resource key to limit map.
      */
@@ -109,6 +127,20 @@ class PlansAndResourcesTableSeeder extends Seeder
             'description' => null,
         ]);
 
+        foreach ($limits as $key => $limit) {
+            self::attachResourceLimits($plan, [$key => $limit], $resourceType);
+        }
+
+        return $plan->refresh();
+    }
+
+    /**
+     * Attach resource limits matching the requested resource type to an existing plan.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    private static function attachResourceLimits(Plan $plan, array $limits, ?string $resourceType = null): Plan
+    {
         $resources = match ($resourceType) {
             'tenant' => self::tenantResources(),
             'environment' => self::environmentResources(),
@@ -117,7 +149,7 @@ class PlansAndResourcesTableSeeder extends Seeder
 
         foreach ($limits as $key => $limit) {
             if (!isset($resources[$key])) {
-                throw new \InvalidArgumentException('Unknown resource key "' . $key . '" for plan "' . $name . '".');
+                throw new \InvalidArgumentException('Unknown resource key "' . $key . '" for plan "' . $plan->name . '".');
             }
 
             $plan->resources()->syncWithoutDetaching([

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Models\TenantUsage;
 use Froxlor\Core\Models\User;
 use Tests\TestCase;
 
@@ -122,5 +123,66 @@ class PlanResourceAuthorizationTest extends TestCase
             ->deleteJson('/api/plans/' . $plan->id . '/resources/' . $resource->id)
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['resource_id']);
+    }
+
+    public function test_assigned_global_plan_resources_can_change_when_usage_fits(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
+        $plan = Plan::query()->create([
+            'tenant_id' => null,
+            'name' => 'Assigned Global Mutable Plan ' . str()->ulid(),
+        ]);
+        $plan->resources()->attach($resource, ['limit' => 2]);
+        Tenant::query()->create([
+            'plan_id' => $plan->id,
+            'name' => 'Assigned Global Mutable Tenant ' . str()->ulid(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/plans/' . $plan->id . '/resources', [
+                'resource_id' => $resource->id,
+                'limit' => 4,
+            ])
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/plans/' . $plan->id . '/resources', [
+                'resource_id' => $resource->id,
+                'limit' => 1,
+            ])
+            ->assertOk();
+
+    }
+
+    public function test_assigned_global_plan_resource_limit_cannot_drop_below_usage(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
+        $plan = Plan::query()->create([
+            'tenant_id' => null,
+            'name' => 'Assigned Global Usage Plan ' . str()->ulid(),
+        ]);
+        $plan->resources()->attach($resource, ['limit' => 2]);
+        $tenant = Tenant::query()->create([
+            'plan_id' => $plan->id,
+            'name' => 'Assigned Global Usage Tenant ' . str()->ulid(),
+        ]);
+
+        TenantUsage::query()->create([
+            'tenant_id' => $tenant->id,
+            'user_id' => $user->id,
+            'resource_key' => $resource->key,
+            'resource_id' => User::query()->where('email', 'dev3@froxlor.org')->firstOrFail()->id,
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/plans/' . $plan->id . '/resources', [
+                'resource_id' => $resource->id,
+                'limit' => 0,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan']);
+
     }
 }

@@ -141,7 +141,7 @@ class TenantUserAuthorizationTest extends TestCase
                 'email' => 'tenant-wrong-type-plan-user-' . str()->ulid() . '@froxlor.test',
                 'password' => 'secret-password',
                 'role_id' => $role->id,
-                'plan_id' => Plan::query()->whereNull('tenant_id')->firstOrFail()->id,
+                'plan_id' => Plan::query()->whereNull('tenant_id')->where('name', 'Platform Unlimited')->firstOrFail()->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);

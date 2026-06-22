@@ -44,9 +44,11 @@ class TenantController extends Controller
         Gate::authorize('create', [Tenant::class, $parentTenant]);
 
         $plan = Plan::query()->findOrFail($tenantData['plan_id']);
-        PlanAssignments::ensureAssignableToChildTenant($plan, $parentTenant);
 
         $tenant = DB::transaction(function () use ($tenantData, $nodes, $parentTenant, $plan) {
+            PlanAssignments::lockTenantBudget($parentTenant);
+            PlanAssignments::ensureAssignableToChildTenant($plan, $parentTenant);
+
             // create resource
             $tenant = Tenant::query()->create($tenantData);
             PlanAssignments::syncTenantReservations($parentTenant, $tenant, $plan);
@@ -97,11 +99,16 @@ class TenantController extends Controller
             : $tenant->plan;
         $oldParentTenant = $tenant->parentTenant;
 
-        if ($parentTenant !== null) {
-            PlanAssignments::ensureAssignableToChildTenant($plan, $parentTenant, $tenant);
-        }
-
         DB::transaction(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+            if ($oldParentTenant !== null && ($parentTenant === null || $oldParentTenant->id !== $parentTenant->id)) {
+                PlanAssignments::lockTenantBudget($oldParentTenant);
+            }
+
+            if ($parentTenant !== null) {
+                PlanAssignments::lockTenantBudget($parentTenant);
+                PlanAssignments::ensureAssignableToChildTenant($plan, $parentTenant, $tenant);
+            }
+
             if ($oldParentTenant !== null) {
                 PlanAssignments::removeTenantReservations($oldParentTenant, $tenant);
             }

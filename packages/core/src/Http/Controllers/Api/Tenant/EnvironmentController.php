@@ -43,7 +43,7 @@ class EnvironmentController extends Controller
         $envData['tenant_id'] = $tenant->id;
         // non-model values
         $node_id = $this->getNonModelRequestData('node_id', $envData);
-        PlanAssignments::ensurePlanAvailableForTenant($envData['plan_id'] ?? null, $tenant);
+        PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
         // create resource
         $env = Environment::query()->create($envData);
         // build up validated data for others
@@ -79,7 +79,7 @@ class EnvironmentController extends Controller
 
         $envData = $request->validated();
         $nodeId = $this->getNonModelRequestData('node_id', $envData);
-        PlanAssignments::ensurePlanAvailableForTenant($envData['plan_id'] ?? null, $tenant);
+        PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
 
         $environment->update($envData);
         event(new ResourceUpdated($environment, $this->validatedEventData($request)));

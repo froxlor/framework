@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
+use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Tests\Fakes\FakeNodeAdapter;
@@ -210,14 +211,17 @@ class TenantEnvironmentAuthorizationTest extends TestCase
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $resource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
         $tenantPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Available Environment Plan ' . str()->ulid(),
         ]);
+        $tenantPlan->resources()->attach($resource, ['limit' => 1]);
         $globalPlan = Plan::query()->create([
             'tenant_id' => null,
             'name' => 'Global Available Environment Plan ' . str()->ulid(),
         ]);
+        $globalPlan->resources()->attach($resource, ['limit' => 1]);
 
         $environmentId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [
@@ -234,5 +238,29 @@ class TenantEnvironmentAuthorizationTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.plan_id', $globalPlan->id);
+    }
+
+    public function test_tenant_admin_cannot_assign_environment_plan_above_tenant_plan(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->firstOrFail()->id]);
+        $resource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
+        $tenant->plan->resources()->syncWithoutDetaching([
+            $resource->id => ['limit' => 1],
+        ]);
+        $plan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Oversized Environment Plan ' . str()->ulid(),
+        ]);
+        $plan->resources()->attach($resource, ['limit' => 2]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/environments', [
+                'name' => 'Rejected Oversized Environment Plan ' . str()->ulid(),
+                'plan_id' => $plan->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan_id']);
     }
 }
