@@ -79,7 +79,9 @@ class EnvironmentController extends Controller
 
         $envData = $request->validated();
         $nodeId = $this->getNonModelRequestData('node_id', $envData);
-        PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
+        if (array_key_exists('plan_id', $envData)) {
+            PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'], $tenant, 'plan_id', $environment);
+        }
 
         $environment->update($envData);
         event(new ResourceUpdated($environment, $this->validatedEventData($request)));

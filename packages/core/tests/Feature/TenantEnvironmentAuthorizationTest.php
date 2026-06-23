@@ -8,6 +8,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\Fakes\FakeNodeAdapter;
 use Tests\TestCase;
 
@@ -211,7 +212,15 @@ class TenantEnvironmentAuthorizationTest extends TestCase
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $resource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
+        $resource = Resource::query()->create([
+            'key' => 'environment-plan-switch-usage-' . str()->ulid(),
+            'name' => 'Environment Plan Switch Usage Resource',
+            'model_type' => Environment::class,
+            'type' => 'environment',
+        ]);
+        $tenant->plan->resources()->syncWithoutDetaching([
+            $resource->id => ['limit' => 1],
+        ]);
         $tenantPlan = Plan::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Available Environment Plan ' . str()->ulid(),
@@ -245,7 +254,12 @@ class TenantEnvironmentAuthorizationTest extends TestCase
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
         $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
         $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Limited')->firstOrFail()->id]);
-        $resource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
+        $resource = Resource::query()->create([
+            'key' => 'environment-plan-usage-' . str()->ulid(),
+            'name' => 'Environment Plan Usage Resource',
+            'model_type' => Environment::class,
+            'type' => 'environment',
+        ]);
         $tenant->plan->resources()->syncWithoutDetaching([
             $resource->id => ['limit' => 1],
         ]);
@@ -259,6 +273,72 @@ class TenantEnvironmentAuthorizationTest extends TestCase
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [
                 'name' => 'Rejected Oversized Environment Plan ' . str()->ulid(),
                 'plan_id' => $plan->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan_id']);
+    }
+
+    public function test_tenant_admin_cannot_update_environment_plan_below_current_usage(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $environment = Environment::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('name', 'Kunden Environment')
+            ->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $resource = Resource::query()->create([
+            'key' => 'environment-plan-usage-' . str()->ulid(),
+            'name' => 'Environment Plan Usage Resource',
+            'model_type' => Environment::class,
+            'type' => 'environment',
+        ]);
+        $environmentUserResource = Resource::query()->where('type', 'environment')->where('key', 'users')->firstOrFail();
+        $tenantUserResource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
+        $nodeResource = Resource::query()->where('type', 'tenant')->where('key', 'nodes')->firstOrFail();
+        $tenantPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Environment Usage Tenant Plan ' . str()->ulid(),
+        ]);
+        $tenantPlan->resources()->attach($resource, ['limit' => 3]);
+        $tenantPlan->resources()->attach($environmentUserResource, ['limit' => 10]);
+        $tenantPlan->resources()->attach($tenantUserResource, ['limit' => 10]);
+        $tenantPlan->resources()->attach($nodeResource, ['limit' => 10]);
+        $tenant->update(['plan_id' => $tenantPlan->id]);
+        $initialPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Environment Usage Initial Plan ' . str()->ulid(),
+        ]);
+        $initialPlan->resources()->attach($resource, ['limit' => 2]);
+        $initialPlan->resources()->attach($environmentUserResource, ['limit' => 10]);
+        $tooSmallPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Environment Usage Too Small Plan ' . str()->ulid(),
+        ]);
+        $tooSmallPlan->resources()->attach($resource, ['limit' => 1]);
+        $environment->update(['plan_id' => $initialPlan->id]);
+
+        DB::table('env_usage')->insert([
+            'id' => (string)str()->ulid(),
+            'environment_id' => $environment->id,
+            'user_id' => $user->id,
+            'resource_key' => $resource->key,
+            'resource_id' => (string)str()->ulid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('env_usage')->insert([
+            'id' => (string)str()->ulid(),
+            'environment_id' => $environment->id,
+            'user_id' => $user->id,
+            'resource_key' => $resource->key,
+            'resource_id' => (string)str()->ulid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id . '/environments/' . $environment->id, [
+                'plan_id' => $tooSmallPlan->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);

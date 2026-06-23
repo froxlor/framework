@@ -7,7 +7,7 @@ use Froxlor\Core\Events\Api\ResourceDeleted;
 use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\Tenant\Environment\StoreEnvironmentUserRequest;
-use Froxlor\Core\Http\Requests\UpdateUserRequest;
+use Froxlor\Core\Http\Requests\Tenant\Environment\UpdateEnvironmentUserRequest;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
@@ -81,11 +81,59 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateUserRequest $request, Tenant $tenant, Environment $environment, User $user)
+    public function update(UpdateEnvironmentUserRequest $request, Tenant $tenant, Environment $environment, User $user)
     {
         Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
 
-        $user->update($request->validated());
+        $userData = $request->validated();
+        $tenantRoleId = $this->getNonModelRequestData('tenant_role', $userData);
+        $tenantPlanProvided = $request->has('tenant_plan');
+        $tenantPlanId = $this->getNonModelRequestData('tenant_plan', $userData);
+        $environmentRoleId = $this->getNonModelRequestData('environment_role', $userData);
+        $environmentPlanProvided = $request->has('environment_plan');
+        $environmentPlanId = $this->getNonModelRequestData('environment_plan', $userData);
+
+        if (!empty($tenantRoleId)) {
+            RoleAssignments::ensureAssignable($request->user(), $tenantRoleId, 'tenant_role', $tenant);
+        }
+        if (!empty($environmentRoleId)) {
+            RoleAssignments::ensureAssignable($request->user(), $environmentRoleId, 'environment_role', $tenant, $environment);
+        }
+        if ($tenantPlanProvided) {
+            PlanAssignments::ensureAssignableToTenantUser($tenantPlanId, $tenant, 'tenant_plan', $user->id);
+        }
+        if ($environmentPlanProvided) {
+            PlanAssignments::ensureAssignableToEnvironmentUser($environmentPlanId, $tenant, $environment, 'environment_plan', $user->id);
+        }
+
+        $user->update($userData);
+
+        $tenantPivotData = [];
+        if (!empty($tenantRoleId)) {
+            $tenantPivotData['role_id'] = $tenantRoleId;
+        }
+        if ($tenantPlanProvided) {
+            $tenantPivotData['plan_id'] = $tenantPlanId;
+        }
+        if ($tenantPivotData !== []) {
+            $user->tenants()->syncWithoutDetaching([
+                $tenant->id => $tenantPivotData,
+            ]);
+        }
+
+        $environmentPivotData = [];
+        if (!empty($environmentRoleId)) {
+            $environmentPivotData['role_id'] = $environmentRoleId;
+        }
+        if ($environmentPlanProvided) {
+            $environmentPivotData['plan_id'] = $environmentPlanId;
+        }
+        if ($environmentPivotData !== []) {
+            $user->environments()->syncWithoutDetaching([
+                $environment->id => $environmentPivotData,
+            ]);
+        }
+
         event(new ResourceUpdated($user, $this->validatedEventData($request)));
 
         return Response::jsonResource($user->refresh());

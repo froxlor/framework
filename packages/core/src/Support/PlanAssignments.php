@@ -21,9 +21,12 @@ class PlanAssignments
      *
      * @throws ValidationException
      */
-    public static function ensureAssignableToTenantUser(?string $planId, Tenant $tenant, string $field = 'plan_id'): void
+    public static function ensureAssignableToTenantUser(?string $planId, Tenant $tenant, string $field = 'plan_id', ?string $userId = null): void
     {
         if (empty($planId)) {
+            if ($userId !== null && $tenant->plan !== null) {
+                self::ensureTenantUserUsageWithinPlan($tenant, $userId, $tenant->plan, $field);
+            }
             return;
         }
 
@@ -35,6 +38,10 @@ class PlanAssignments
 
         self::ensureHasEnabledResources($plan, $field, 'The selected plan does not contain enabled resources.');
         self::ensureWithinParentPlan($plan, $tenant->plan, $field);
+
+        if ($userId !== null) {
+            self::ensureTenantUserUsageWithinPlan($tenant, $userId, $plan, $field);
+        }
     }
 
     /**
@@ -51,8 +58,13 @@ class PlanAssignments
         Tenant $tenant,
         Environment $environment,
         string $field = 'environment_plan',
+        ?string $userId = null,
     ): void {
         if (empty($planId)) {
+            $parentPlan = self::environmentParentPlan($environment);
+            if ($userId !== null && $parentPlan !== null) {
+                self::ensureEnvironmentUserUsageWithinPlan($environment, $userId, $parentPlan, $field);
+            }
             return;
         }
 
@@ -64,6 +76,10 @@ class PlanAssignments
 
         self::ensureHasEnabledResources($plan, $field, 'The selected plan does not contain enabled resources.');
         self::ensureWithinParentPlan($plan, self::environmentParentPlan($environment), $field);
+
+        if ($userId !== null) {
+            self::ensureEnvironmentUserUsageWithinPlan($environment, $userId, $plan, $field);
+        }
     }
 
     /**
@@ -248,6 +264,10 @@ class PlanAssignments
 
         self::ensureWithinParentPlan($plan->loadMissing('resources'), $parentTenant->plan, $field);
         self::ensureWithinAvailableTenantBudget($plan, $parentTenant, $childTenant, $field);
+
+        if ($childTenant !== null) {
+            self::ensureTenantUsageWithinPlan($childTenant, $plan, $field);
+        }
     }
 
     /**
@@ -277,9 +297,12 @@ class PlanAssignments
      *
      * @throws ValidationException
      */
-    public static function ensureAssignableToEnvironment(?string $planId, Tenant $tenant, string $field = 'plan_id'): void
+    public static function ensureAssignableToEnvironment(?string $planId, Tenant $tenant, string $field = 'plan_id', ?Environment $environment = null): void
     {
         if ($planId === null) {
+            if ($environment !== null && $tenant->plan !== null) {
+                self::ensureEnvironmentUsageWithinPlan($environment, $tenant->plan, $field);
+            }
             return;
         }
 
@@ -291,6 +314,10 @@ class PlanAssignments
 
         self::ensureHasEnabledResources($plan, $field, 'The selected plan does not contain enabled resources.');
         self::ensureWithinParentPlan($plan, $tenant->plan, $field);
+
+        if ($environment !== null) {
+            self::ensureEnvironmentUsageWithinPlan($environment, $plan, $field);
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class TenantUserAuthorizationTest extends TestCase
@@ -142,6 +143,68 @@ class TenantUserAuthorizationTest extends TestCase
                 'password' => 'secret-password',
                 'role_id' => $role->id,
                 'plan_id' => Plan::query()->whereNull('tenant_id')->where('name', 'Platform Unlimited')->firstOrFail()->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan_id']);
+    }
+
+    public function test_tenant_user_plan_update_cannot_drop_below_current_usage(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $role = Role::query()->where('name', 'Admin')->firstOrFail();
+        $resource = Resource::query()->where('key', 'users')->where('type', 'tenant')->firstOrFail();
+        $parentPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Tenant User Usage Parent Plan ' . str()->ulid(),
+        ]);
+        $parentPlan->resources()->attach($resource, ['limit' => 3]);
+        $tenant->update(['plan_id' => $parentPlan->id]);
+        $initialPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Tenant User Usage Initial Plan ' . str()->ulid(),
+        ]);
+        $initialPlan->resources()->attach($resource, ['limit' => 2]);
+        $tooSmallPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Tenant User Usage Too Small Plan ' . str()->ulid(),
+        ]);
+        $tooSmallPlan->resources()->attach($resource, ['limit' => 1]);
+
+        $targetUserId = $this->actingAs($user, 'sanctum')
+            ->postJson('/api/tenants/' . $tenant->id . '/users', [
+                'first_name' => 'Tenant',
+                'last_name' => 'Usage Plan User',
+                'email' => 'tenant-usage-plan-user-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'role_id' => $role->id,
+                'plan_id' => $initialPlan->id,
+            ])
+            ->assertCreated()
+            ->json('data.id');
+
+        DB::table('tenant_usage')->insert([
+            'id' => (string)str()->ulid(),
+            'tenant_id' => $tenant->id,
+            'user_id' => $targetUserId,
+            'resource_key' => $resource->key,
+            'resource_id' => (string)str()->ulid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('tenant_usage')->insert([
+            'id' => (string)str()->ulid(),
+            'tenant_id' => $tenant->id,
+            'user_id' => $targetUserId,
+            'resource_key' => $resource->key,
+            'resource_id' => (string)str()->ulid(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id . '/users/' . $targetUserId, [
+                'plan_id' => $tooSmallPlan->id,
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['plan_id']);

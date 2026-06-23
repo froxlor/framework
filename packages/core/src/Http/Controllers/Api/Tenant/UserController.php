@@ -110,7 +110,9 @@ class UserController extends Controller
             ?? $this->getNonModelRequestData('plan', $userData);
 
         RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $tenant);
-        PlanAssignments::ensureAssignableToTenantUser($planId, $tenant);
+        if ($planProvided) {
+            PlanAssignments::ensureAssignableToTenantUser($planId, $tenant, 'plan_id', $user->id);
+        }
 
         $user->update($userData);
 

@@ -124,7 +124,9 @@ class UserController extends Controller
             if ($roleId) {
                 RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $targetTenant);
             }
-            PlanAssignments::ensureAssignableToTenantUser($planId, $targetTenant);
+            if ($planProvided) {
+                PlanAssignments::ensureAssignableToTenantUser($planId, $targetTenant, 'plan_id', $user->id);
+            }
         }
 
         $user->update($userData);
