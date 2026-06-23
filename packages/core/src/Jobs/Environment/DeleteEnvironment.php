@@ -50,7 +50,7 @@ class DeleteEnvironment implements ShouldQueue
 
                 $this->environment->nodes()->detach($node->id);
 
-                Audit::log('environment "' . $this->environment->name . '" deleted from node "' . $node->name . '"', $this->environment->tenant, $this->environment, [
+                Audit::notice('environment "' . $this->environment->name . '" deleted from node "' . $node->name . '"', $this->environment->tenant, $this->environment, [
                     'node_id' => $node->id,
                     'unix_name' => $unixName,
                     'guid' => $guid,

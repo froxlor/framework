@@ -14,6 +14,7 @@ class SettingsTableSeeder extends Seeder
      */
     protected array $settings = [
         ['category' => 'auditlog', 'key' => 'enabled', 'value' => true, 'default_value' => true, 'type' => 'boolean'],
+        ['category' => 'auditlog', 'key' => 'severity', 'value' => 5, 'default_value' => 5, 'type' => 'integer', 'properties' => ['min' => 0, 'max' => 7]],
         ['category' => 'api', 'key' => 'pagination_limit', 'value' => 15, 'default_value' => 15, 'type' => 'integer'],
     ];
 

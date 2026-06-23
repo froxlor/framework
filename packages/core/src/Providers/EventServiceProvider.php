@@ -28,7 +28,7 @@ class EventServiceProvider extends ServiceProvider
         Event::listen('eloquent.*', function (string $eventName, array $data) {
             [$event, $type] = array_map('trim', explode(': ', $eventName));
             if (in_array($event, ['eloquent.updated', 'eloquent.created', 'eloquent.deleted', 'eloquent.restored'])) {
-                Audit::log(
+                Audit::info(
                     collect(Arr::dot([
                         'event' => $event,
                         'type' => $type,

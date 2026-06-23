@@ -3,7 +3,7 @@
 namespace Froxlor\Core\Resources\Plans\Schemas;
 
 use Froxlor\Core\Models\Plan;
-use Froxlor\Core\Resources\Plans\Relations\Resource\Schemas\ResourceTable;
+use Froxlor\Core\Resources\Plans\Relations\Resources\Schemas\ResourceTable;
 use Froxlor\UI\Forms;
 use Froxlor\UI\Schemas;
 

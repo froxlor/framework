@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Services\Traits\IsEnvironmentResource;
@@ -72,26 +73,22 @@ class ResourceRegistryTest extends TestCase
     public function test_package_model_resources_are_seeded_automatically(): void
     {
         $this->assertDatabaseHas('resources', [
-            'key' => 'domains',
-            'type' => 'environment',
-            'model_type' => Domain::class,
+            'key' => 'nodes',
+            'type' => 'tenant',
+            'model_type' => Node::class,
         ]);
 
         $this->assertDatabaseHas('resources', [
-            'key' => 'mailaddresses',
-            'type' => 'environment',
-            'model_type' => MailAddress::class,
+            'key' => 'users',
+            'type' => 'tenant',
+            'model_type' => User::class,
         ]);
 
-        $this->assertTrue(Resource::query()
-            ->where('key', 'users')
-            ->where('type', 'tenant')
-            ->where('model_type', User::class)
-            ->exists());
-        $this->assertTrue(Resource::query()
-            ->where('key', 'users')
-            ->where('type', 'environment')
-            ->where('model_type', User::class)
-            ->exists());
+        $this->assertDatabaseHas('resources', [
+            'key' => 'users',
+            'type' => 'environment',
+            'model_type' => User::class,
+        ]);
+
     }
 }

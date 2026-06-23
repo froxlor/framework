@@ -18,12 +18,12 @@ class DatabaseSeeder extends Seeder
     {
         // call required package seeders
         $this->call($this->seederClasses());
-        Audit::log('The package seeder classes have been seeded.');
+        Audit::info('The package seeder classes have been seeded.');
 
         // call development/test fixture seeders
         if (SeedProfile::includesDevelopmentData()) {
             $this->call($this->testingSeederClasses());
-            Audit::log('The ' . SeedProfile::developmentDataLabel() . ' package seeder classes have been seeded.');
+            Audit::debug('The ' . SeedProfile::developmentDataLabel() . ' package seeder classes have been seeded.');
         }
     }
 

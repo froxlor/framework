@@ -171,6 +171,7 @@ class Setting
     {
         return match ($type) {
             'bool' => (bool)$value,
+            'integer' => intval($value),
             default => $value,
         };
     }

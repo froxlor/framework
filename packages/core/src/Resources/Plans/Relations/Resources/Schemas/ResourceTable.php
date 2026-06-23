@@ -1,6 +1,6 @@
 <?php
 
-namespace Froxlor\Core\Resources\Plans\Relations\Resource\Schemas;
+namespace Froxlor\Core\Resources\Plans\Relations\Resources\Schemas;
 
 use Froxlor\Core\Models\Plan;
 use Froxlor\UI\Tables;

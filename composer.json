@@ -50,18 +50,9 @@
             "Froxlor\\Core\\": "packages/core/src",
             "Froxlor\\Core\\Database\\Factories\\": "packages/core/database/factories/",
             "Froxlor\\Core\\Database\\Seeders\\": "packages/core/database/seeders/",
-            "Froxlor\\Database\\": "packages/database/src",
-            "Froxlor\\Developer\\": "packages/developer/src",
-            "Froxlor\\Domain\\": "packages/domain/src",
-            "Froxlor\\Domain\\Database\\Seeders\\": "packages/domain/database/seeders/",
-            "Froxlor\\Ftp\\": "packages/ftp/src",
-            "Froxlor\\Mail\\": "packages/mail/src",
-            "Froxlor\\Mail\\Database\\Seeders\\": "packages/mail/database/seeders/",
             "Froxlor\\Packages\\": "packages/packages/src",
             "Froxlor\\Packages\\Database\\Factories\\": "packages/packages/database/factories/",
             "Froxlor\\Packages\\Database\\Seeders\\": "packages/packages/database/seeders/",
-            "Froxlor\\Web\\": "packages/web/src",
-            "Froxlor\\Web\\Database\\Seeders\\": "packages/web/database/seeders/",
             "Froxlor\\UI\\": "packages/ui/src"
         }
     },
@@ -82,14 +73,8 @@
     "replace": {
         "froxlor/auth": "self.version",
         "froxlor/core": "self.version",
-        "froxlor/database": "self.version",
-        "froxlor/developer": "self.version",
-        "froxlor/domain": "self.version",
-        "froxlor/ftp": "self.version",
-        "froxlor/mail": "self.version",
         "froxlor/package": "self.version",
-        "froxlor/ui": "self.version",
-        "froxlor/web": "self.version"
+        "froxlor/ui": "self.version"
     },
     "extra": {
         "froxlor": {
@@ -101,17 +86,8 @@
                 "Froxlor\\Core\\Providers\\EventServiceProvider",
                 "Froxlor\\Core\\Providers\\FroxlorCoreServiceProvider",
                 "Froxlor\\Core\\Providers\\HorizonServiceProvider",
-                "Froxlor\\Database\\Providers\\FroxlorDatabaseServiceProvider",
-                "Froxlor\\Developer\\Providers\\FroxlorDeveloperServiceProvider",
-                "Froxlor\\Domain\\Providers\\EventServiceProvider",
-                "Froxlor\\Domain\\Providers\\FroxlorDomainServiceProvider",
-                "Froxlor\\Ftp\\Providers\\FroxlorFtpServiceProvider",
-                "Froxlor\\Mail\\Providers\\EventServiceProvider",
-                "Froxlor\\Mail\\Providers\\FroxlorMailServiceProvider",
                 "Froxlor\\Packages\\Providers\\EventServiceProvider",
                 "Froxlor\\Packages\\Providers\\FroxlorPackageServiceProvider",
-                "Froxlor\\Web\\Providers\\EventServiceProvider",
-                "Froxlor\\Web\\Providers\\FroxlorWebServiceProvider",
                 "Froxlor\\UI\\Providers\\FroxlorUIServiceProvider"
             ]
         }

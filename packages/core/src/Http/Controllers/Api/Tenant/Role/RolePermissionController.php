@@ -67,7 +67,7 @@ class RolePermissionController extends Controller
             $permission->id => ['inheritable' => $data['inheritable'] ?? false],
         ]);
 
-        Audit::log('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $tenant, context: [
+        Audit::notice('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $tenant, context: [
             'role_id' => $role->id,
             'permission_id' => $permission->id,
             'permission_key' => $permission->key,
@@ -94,7 +94,7 @@ class RolePermissionController extends Controller
 
         $role->permissions()->detach($permission);
 
-        Audit::log('permission "' . $permission->key . '" removed from role "' . $role->name . '"', $tenant, context: [
+        Audit::info('permission "' . $permission->key . '" removed from role "' . $role->name . '"', $tenant, context: [
             'role_id' => $role->id,
             'permission_id' => $permission->id,
             'permission_key' => $permission->key,

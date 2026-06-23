@@ -41,7 +41,7 @@ class PlanResource extends Resource
         return Schema::make()
             ->title(trans('froxlor-core::generic.edit_resource'))
             ->description(trans('froxlor-core::generic.edit_resource'))
-            ->push(route('api.nodes.store'))
+            ->push(route('api.plans.store'))
             ->intendedRoute('resources.plans.index')
             ->components(PlanForm::schema())
             ->actions(PlanForm::actions());

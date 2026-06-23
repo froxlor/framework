@@ -19,12 +19,12 @@ class DatabaseSeeder extends Seeder
     {
         // call required package seeders
         $this->call($this->coreSeederClasses());
-        Audit::log('The core seeder classes have been seeded.');
+        Audit::info('The core seeder classes have been seeded.');
 
         // call development/test fixture seeders
         if (SeedProfile::includesDevelopmentData()) {
             $this->call($this->fixtureSeederClasses());
-            Audit::log('The ' . SeedProfile::developmentDataLabel() . ' core seeder classes have been seeded.');
+            Audit::debug('The ' . SeedProfile::developmentDataLabel() . ' core seeder classes have been seeded.');
         }
 
         // notify other seeders

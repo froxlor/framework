@@ -58,7 +58,7 @@ class UserController extends Controller
             // throw event that resource was created and append validated data
             event(new ResourceCreated($user, $eventData));
 
-            Audit::log('user "' . $user->email . '" created', $tenant);
+            Audit::notice('user "' . $user->email . '" created', $tenant);
             // return resource
             return Response::jsonResource($user->refresh());
         }

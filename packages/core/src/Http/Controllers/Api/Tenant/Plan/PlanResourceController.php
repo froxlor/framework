@@ -66,7 +66,7 @@ class PlanResourceController extends Controller
         $resource = Resource::query()->findOrFail($data['resource_id']);
         PlanAssignments::updatePlanResourceLimit($plan, $resource, (int)$data['limit'], $tenant);
 
-        Audit::log('resource "' . $resource->key . '" assigned to plan "' . $plan->name . '"', $tenant, context: [
+        Audit::info('resource "' . $resource->key . '" assigned to plan "' . $plan->name . '"', $tenant, context: [
             'plan_id' => $plan->id,
             'resource_id' => $resource->id,
             'resource_key' => $resource->key,
@@ -92,7 +92,7 @@ class PlanResourceController extends Controller
 
         PlanAssignments::removePlanResource($plan, $resource);
 
-        Audit::log('resource "' . $resource->key . '" removed from plan "' . $plan->name . '"', $tenant, context: [
+        Audit::info('resource "' . $resource->key . '" removed from plan "' . $plan->name . '"', $tenant, context: [
             'plan_id' => $plan->id,
             'resource_id' => $resource->id,
             'resource_key' => $resource->key,
