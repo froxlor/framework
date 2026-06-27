@@ -5,7 +5,6 @@ namespace Froxlor\Core\Resources\Tenants\Relations\Environments\Schemas;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Resources\AuditLogs\Tables\AuditLogTable;
-use Froxlor\Core\Resources\Plans\Tables\PlanTable;
 use Froxlor\Core\Resources\Users\Tables\UserTable;
 use Froxlor\UI\Schemas;
 use Froxlor\UI\Tables;
@@ -47,17 +46,6 @@ class EnvironmentView
                                 ->columns(UserTable::columns())
                                 ->actions([]),
                         ]),
-                    Schemas\Components\Tab::make('tenants.environments.show.tabs.plans')
-                        ->sort(2000)
-                        ->label(trans('froxlor-core::generic.plans'))
-                        ->components([
-                            Schemas\Components\Relation::make('plans')
-                                ->fetch(route('api.tenants.environments.plans.index', [$tenant, $environment]))
-                                //->intendedRoute('tenants.environments.plans.show', ['tenant' => $tenant->id, 'environment' => $environment->id, 'plan' => {id}'])
-                                ->columns(PlanTable::columns())
-                                ->actions([]),
-                        ]),
-
                     Schemas\Components\Tab::make('tenants.environments.show.tabs.log')
                         ->sort(9999)
                         ->label(trans('froxlor-core::generic.audit-log'))

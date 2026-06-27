@@ -91,7 +91,7 @@ class CreateEnvironment implements ShouldQueue
             ]);
 
             event(new EnvironmentCreated($environment));
-            Audit::log('environment "' . $environment->name . '" created on node "' . $node->name . '"', $environment->tenant, $environment, [
+            Audit::notice('environment "' . $environment->name . '" created on node "' . $node->name . '"', $environment->tenant, $environment, [
                 'node_id' => $node->id,
                 'unix_name' => $unixName,
                 'guid' => $guid,

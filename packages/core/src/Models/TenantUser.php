@@ -77,7 +77,10 @@ class TenantUser extends Pivot
             $plan = $this->tenant->plan;
         }
         /** @var Resource $resource_to_check */
-        $resource_to_check = $plan->resources()->where('key', $resource)->first();
+        $resource_to_check = $plan->resources()
+            ->where('resources.key', $resource)
+            ->where('resources.type', 'tenant')
+            ->first();
         if (empty($resource_to_check)) {
             // don't have this resource assigned to plan at all
             return false;

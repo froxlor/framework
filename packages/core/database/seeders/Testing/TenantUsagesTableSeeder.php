@@ -30,7 +30,7 @@ class TenantUsagesTableSeeder extends Seeder
         $user1 = User::query()->where('email', config('dev.email'))->first(); // user #1
         $user2 = User::query()->where('email', 'dev2@froxlor.org')->first(); // user #2
 
-        $planUnlimited = Plan::query()->where('name', 'Unlimited')->first();
+        $planUnlimited = Plan::query()->where('name', 'Test Tenant Unlimited')->first();
 
         Resource::addUsage($tenant, $tenant2, $user1);
         Resource::addUsage($tenant, $planUnlimited, $user1);

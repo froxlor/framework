@@ -23,6 +23,7 @@ use Froxlor\Core\Services\Node\Adapter\Local;
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Core\Support\PermissionRegistry;
+use Froxlor\Core\Support\ResourceRegistry;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
 use Froxlor\UI\Support\UI;
@@ -62,6 +63,7 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         // Permissions
         PermissionRegistry::registerPackageModelsFrom(dirname(__DIR__, 3));
+        ResourceRegistry::registerPackageModelsFrom(dirname(__DIR__, 3));
 
         // Blade components
         Blade::componentNamespace('Froxlor\\Core\\Views\\Components', 'froxlor-core');

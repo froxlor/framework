@@ -11,8 +11,8 @@ use Froxlor\Core\Http\Requests\UpdateEnvironmentRequest;
 use Froxlor\Core\Jobs\Environment\CreateEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
-use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -43,7 +43,7 @@ class EnvironmentController extends Controller
         $envData['tenant_id'] = $tenant->id;
         // non-model values
         $node_id = $this->getNonModelRequestData('node_id', $envData);
-        $this->ensurePlanCanBeUsedForEnvironment($envData['plan_id'] ?? null, $tenant);
+        PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
         // create resource
         $env = Environment::query()->create($envData);
         // build up validated data for others
@@ -79,7 +79,9 @@ class EnvironmentController extends Controller
 
         $envData = $request->validated();
         $nodeId = $this->getNonModelRequestData('node_id', $envData);
-        $this->ensurePlanCanBeUsedForEnvironment($envData['plan_id'] ?? null, $tenant);
+        if (array_key_exists('plan_id', $envData)) {
+            PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'], $tenant, 'plan_id', $environment);
+        }
 
         $environment->update($envData);
         event(new ResourceUpdated($environment, $this->validatedEventData($request)));
@@ -126,27 +128,4 @@ class EnvironmentController extends Controller
         return $node;
     }
 
-    /**
-     * Ensure the selected plan is an environment plan available to the tenant.
-     *
-     * Environment plans may be global or tenant-owned. Plans owned by another
-     * tenant, or plans for another plan type, must not be assignable even when
-     * their ULID is known.
-     *
-     * @throws ValidationException
-     */
-    private function ensurePlanCanBeUsedForEnvironment(?string $planId, Tenant $tenant): void
-    {
-        if ($planId === null) {
-            return;
-        }
-
-        $plan = Plan::query()->findOrFail($planId);
-
-        if (!$plan->isEnvironmentPlan() || !$plan->isAvailableForTenant($tenant)) {
-            throw ValidationException::withMessages([
-                'plan_id' => trans('validation.exists', ['attribute' => 'plan_id']),
-            ]);
-        }
-    }
 }

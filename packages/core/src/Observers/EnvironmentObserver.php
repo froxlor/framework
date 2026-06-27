@@ -72,7 +72,7 @@ class EnvironmentObserver
             Resource::addUsage($environment->tenant, $environment, auth()->user());
         }
 
-        Audit::log('environment "' . $environment->name . '" created', $environment->tenant, $environment, [
+        Audit::notice('environment "' . $environment->name . '" created', $environment->tenant, $environment, [
             'plan_id' => $environment->plan_id,
         ]);
     }
@@ -82,7 +82,7 @@ class EnvironmentObserver
      */
     public function updated(Environment $environment): void
     {
-        Audit::log('environment "' . $environment->name . '" updated', $environment->tenant, $environment, [
+        Audit::info('environment "' . $environment->name . '" updated', $environment->tenant, $environment, [
             'plan_id' => $environment->plan_id,
         ]);
     }
@@ -110,7 +110,7 @@ class EnvironmentObserver
             ->where('resource_id', $environment->id)
             ->delete();
 
-        Audit::log('environment "' . $environment->name . '" deleted', $environment->tenant, $environment, [
+        Audit::info('environment "' . $environment->name . '" deleted', $environment->tenant, $environment, [
             'plan_id' => $environment->plan_id,
         ]);
     }

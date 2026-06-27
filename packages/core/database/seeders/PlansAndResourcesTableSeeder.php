@@ -9,79 +9,200 @@ use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Support\ResourceRegistry;
 use Illuminate\Database\Seeder;
 
 class PlansAndResourcesTableSeeder extends Seeder
 {
-
     /**
-     * Seed the baseline resource catalog and default plans.
+     * Seed the baseline resource catalog and global production plans.
      *
-     * Resources are package-owned metadata and are therefore part of production seeding.
-     * The default plans provide useful bootstrap assignments for the root tenant and the
-     * local/testing fixture graph.
-     *
-     * @return void
+     * The default plans are split by human-facing use case, but plans themselves are
+     * not scoped. `resources.type` only defines where actual usage is counted. Limit
+     * semantics are `0` for no access, `-1` for unlimited, and positive values for
+     * finite limits.
      */
     public function run(): void
     {
-        // id=1 | everything unlimited
-        self::createPlanWithResources('Unlimited', [
-            ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => -1],
-            ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => -1],
-            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => -1],
-            ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => -1],
-            ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => -1],
-            ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => -1],
-            ['key' => 'roles', 'name' => 'User roles', 'type' => 'tenant', 'model_type' => Role::class, 'limit' => -1],
+        self::seedResourceCatalog();
+
+        $platformUnlimited = self::createTenantPlan('Platform Unlimited', [
+            'tenants' => -1,
+            'environments' => -1,
+            'nodes' => -1,
+            'plans' => -1,
+            'users' => -1,
+            'roles' => -1,
+        ]);
+        self::attachEnvironmentResourceLimits($platformUnlimited, ['users' => -1]);
+
+        $tenantStandard = self::createTenantPlan('Tenant Standard', [
+            'tenants' => 0,
+            'environments' => 10,
+            'nodes' => 0,
+            'plans' => 5,
+            'users' => 25,
+            'roles' => 10,
+        ]);
+        self::attachEnvironmentResourceLimits($tenantStandard, ['users' => 10]);
+
+        $tenantStarter = self::createTenantPlan('Tenant Starter', [
+            'tenants' => 0,
+            'environments' => 1,
+            'nodes' => 0,
+            'plans' => 0,
+            'users' => 3,
+            'roles' => 3,
+        ]);
+        self::attachEnvironmentResourceLimits($tenantStarter, ['users' => 2]);
+
+        self::createEnvironmentPlan('Environment Unlimited', [
+            'users' => -1,
         ]);
 
-        // id=2 | everything 10x allowed
-        self::createPlanWithResources('Everything 10', [
-            ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class, 'limit' => 10],
-            ['key' => 'environments', 'name' => 'User environments', 'type' => 'tenant', 'model_type' => Environment::class, 'limit' => 10],
-            ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class, 'limit' => 10],
-            ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => 10],
-            ['key' => 'users', 'name' => 'Tenant Users', 'type' => 'tenant', 'model_type' => User::class, 'limit' => 10],
-            ['key' => 'users', 'name' => 'Environment Users', 'type' => 'environment', 'model_type' => User::class, 'limit' => 10],
-            ['key' => 'roles', 'name' => 'User roles', 'type' => 'tenant', 'model_type' => Role::class, 'limit' => 10],
+        self::createEnvironmentPlan('Environment Standard', [
+            'users' => 10,
         ]);
 
-        // id=3 | only plans and roles
-        self::createPlanWithResources('Plans and roles', [
-            ['key' => 'plans', 'name' => 'Usage plans', 'type' => 'tenant', 'model_type' => Plan::class, 'limit' => -1],
-            ['key' => 'roles', 'name' => 'User roles', 'type' => 'tenant', 'model_type' => Role::class, 'limit' => 5],
-            ['key' => 'test-resource', 'name' => 'Some resource later', 'type' => 'environment', 'model_type' => User::class, 'limit' => 10],
+        self::createEnvironmentPlan('Environment Starter', [
+            'users' => 2,
         ]);
     }
 
     /**
-     * Create a plan and attach resource limits to it.
-     *
-     * @param string $string Human readable plan name.
-     * @param array<int, array{key: string, name: string, type?: string, model_type: class-string, limit: int}> $resources
-     * @param string|null $tenant_id Tenant owner for tenant-specific plans, or null for global plans.
+     * Seed all core resources once so plans can reuse stable resource definitions.
      */
-    public static function createPlanWithResources(string $string, array $resources, ?string $tenant_id = null): Plan
+    public static function seedResourceCatalog(): void
     {
-        /** @var Plan $role */
-        $plan = Plan::query()->create([
-            'name' => $string,
-            'tenant_id' => !empty($tenant_id) ? $tenant_id : null,
+        ResourceRegistry::registerPackageModelsFrom(dirname(__DIR__, 3));
+        ResourceRegistry::sync();
+    }
+
+    /**
+     * Create or update a global or tenant-owned plan from tenant-usage resources.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    public static function createTenantPlan(string $name, array $limits, ?string $tenantId = null): Plan
+    {
+        return self::createPlanWithResourceLimits($name, $limits, $tenantId, 'tenant');
+    }
+
+    /**
+     * Create or update a global or tenant-owned plan from environment-usage resources.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    public static function createEnvironmentPlan(string $name, array $limits, ?string $tenantId = null): Plan
+    {
+        return self::createPlanWithResourceLimits($name, $limits, $tenantId, 'environment');
+    }
+
+    /**
+     * Attach environment-usage resource limits to an existing plan.
+     *
+     * This is used for mixed plans: a tenant plan can carry both tenant-usage and
+     * environment-usage budgets while `resources.type` still decides where actual
+     * usage is counted.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    public static function attachEnvironmentResourceLimits(Plan $plan, array $limits): Plan
+    {
+        return self::attachResourceLimits($plan, $limits, 'environment');
+    }
+
+    /**
+     * Create a plan and attach resource limits matching the requested resource type.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    private static function createPlanWithResourceLimits(string $name, array $limits, ?string $tenantId = null, ?string $resourceType = null): Plan
+    {
+        /** @var Plan $plan */
+        $plan = Plan::query()->updateOrCreate([
+            'tenant_id' => $tenantId,
+            'name' => $name,
+        ], [
+            'description' => null,
         ]);
 
-        foreach ($resources as $resource) {
-            $new_resource = Resource::query()->where('key', $resource['key'])->firstOrCreate([
-                'key' => $resource['key'],
-                'name' => $resource['name'],
-                'model_type' => $resource['model_type'],
-                'type' => $resource['type'] ?? 'environment',
-            ]);
-            $plan->resources()->attach($new_resource, [
-                'limit' => $resource['limit']
+        foreach ($limits as $key => $limit) {
+            self::attachResourceLimits($plan, [$key => $limit], $resourceType);
+        }
+
+        return $plan->refresh();
+    }
+
+    /**
+     * Attach resource limits matching the requested resource type to an existing plan.
+     *
+     * @param array<string, int> $limits Resource key to limit map.
+     */
+    private static function attachResourceLimits(Plan $plan, array $limits, ?string $resourceType = null): Plan
+    {
+        $resources = match ($resourceType) {
+            'tenant' => self::tenantResources(),
+            'environment' => self::environmentResources(),
+            default => array_merge(self::tenantResources(), self::environmentResources()),
+        };
+
+        foreach ($limits as $key => $limit) {
+            if (!isset($resources[$key])) {
+                throw new \InvalidArgumentException('Unknown resource key "' . $key . '" for plan "' . $plan->name . '".');
+            }
+
+            $plan->resources()->syncWithoutDetaching([
+                self::resource($resources[$key])->id => ['limit' => $limit],
             ]);
         }
 
-        return $plan;
+        return $plan->refresh();
+    }
+
+    /**
+     * Return tenant-scope core resource definitions.
+     *
+     * @return array<string, array{key: string, name: string, type: string, model_type: class-string}>
+     */
+    private static function tenantResources(): array
+    {
+        return [
+            'tenants' => ['key' => 'tenants', 'name' => 'Tenants', 'type' => 'tenant', 'model_type' => Tenant::class],
+            'environments' => ['key' => 'environments', 'name' => 'Environments', 'type' => 'tenant', 'model_type' => Environment::class],
+            'nodes' => ['key' => 'nodes', 'name' => 'Nodes', 'type' => 'tenant', 'model_type' => Node::class],
+            'plans' => ['key' => 'plans', 'name' => 'Plans', 'type' => 'tenant', 'model_type' => Plan::class],
+            'users' => ['key' => 'users', 'name' => 'Tenant users', 'type' => 'tenant', 'model_type' => User::class],
+            'roles' => ['key' => 'roles', 'name' => 'Roles', 'type' => 'tenant', 'model_type' => Role::class],
+        ];
+    }
+
+    /**
+     * Return environment-scope core resource definitions.
+     *
+     * @return array<string, array{key: string, name: string, type: string, model_type: class-string}>
+     */
+    private static function environmentResources(): array
+    {
+        return [
+            'users' => ['key' => 'users', 'name' => 'Environment users', 'type' => 'environment', 'model_type' => User::class],
+        ];
+    }
+
+    /**
+     * Create or update one resource definition.
+     *
+     * @param array{key: string, name: string, type: string, model_type: class-string} $resource
+     */
+    private static function resource(array $resource): Resource
+    {
+        /** @var Resource $model */
+        $model = Resource::query()->where([
+            'key' => $resource['key'],
+            'model_type' => $resource['model_type'],
+            'type' => $resource['type'],
+        ])->firstOrFail();
+
+        return $model;
     }
 }

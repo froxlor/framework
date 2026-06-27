@@ -10,6 +10,7 @@ use Froxlor\Core\Http\Requests\StorePlanRequest;
 use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -23,16 +24,8 @@ class PlanController extends Controller
     {
         Gate::authorize('tenantViewAny', [Plan::class, $tenant]);
 
-        $type = $request->query('type', '');
         $tenantPlans = Plan::query()->where('tenant_id', '=', $tenant->id);
-        if (!empty($type) && in_array($type, ['environment', 'tenant'])) {
-            $tenantPlans->where('type', '=', $type)
-                ->with('resources', function ($query) use ($type) {
-                    return $query->where('resources.type', '=', $type);
-                });
-        } else {
-            $tenantPlans->with('resources');
-        }
+        $tenantPlans->with('resources');
         return Response::jsonResourceCollection($tenantPlans);
     }
 
@@ -95,6 +88,7 @@ class PlanController extends Controller
     public function destroy(Request $request, Tenant $tenant, Plan $plan)
     {
         Gate::authorize('tenantDelete', [$plan, $tenant]);
+        PlanAssignments::ensureNotAssigned($plan);
 
         $plan->delete();
         event(new ResourceDeleted($plan, []));

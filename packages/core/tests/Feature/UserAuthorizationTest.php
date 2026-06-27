@@ -2,7 +2,10 @@
 
 namespace Tests\Feature;
 
+use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
+use Froxlor\Core\Models\Resource;
+use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Tests\TestCase;
 
@@ -137,5 +140,37 @@ class UserAuthorizationTest extends TestCase
             ])
             ->assertUnprocessable()
             ->assertJsonValidationErrors(['role_id']);
+    }
+
+    public function test_global_user_create_checks_assigned_plan_limits(): void
+    {
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->where('name', 'Admin')->firstOrFail();
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $resource = Resource::query()->where('type', 'tenant')->where('key', 'users')->firstOrFail();
+        $parentPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Global User Parent Plan ' . str()->ulid(),
+        ]);
+        $parentPlan->resources()->attach($resource, ['limit' => 1]);
+        $tenant->update(['plan_id' => $parentPlan->id]);
+        $oversizedPlan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Global User Oversized Plan ' . str()->ulid(),
+        ]);
+        $oversizedPlan->resources()->attach($resource, ['limit' => 2]);
+
+        $this->actingAs($user, 'sanctum')
+            ->postJson('/api/users', [
+                'first_name' => 'Forbidden',
+                'last_name' => 'Plan Assignment',
+                'email' => 'forbidden-global-plan-assignment-' . str()->ulid() . '@froxlor.test',
+                'password' => 'secret-password',
+                'tenant_id' => $tenant->id,
+                'role_id' => $role->id,
+                'plan_id' => $oversizedPlan->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan_id']);
     }
 }

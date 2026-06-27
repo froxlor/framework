@@ -23,9 +23,8 @@ class UpdatePlanRequest extends FormRequest
     {
         return [
             'name' => 'sometimes|string',
-            'type' => 'sometimes|string|in:tenant,environment',
             'description' => 'sometimes|nullable|string',
-            'tenant_id' => 'sometimes|nullable|string|ulid|exists:tenants,id',
+            'tenant_id' => 'prohibited',
         ];
     }
 }

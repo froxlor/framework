@@ -12,6 +12,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -60,6 +61,7 @@ class UserController extends Controller
             ?? $this->getNonModelRequestData('plan', $userData);
 
         RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $targetTenant);
+        PlanAssignments::ensureAssignableToTenantUser($plan, $targetTenant);
 
         // create resource
         $user = User::query()->create($userData);
@@ -117,9 +119,14 @@ class UserController extends Controller
         $planId = $this->getNonModelRequestData('plan_id', $userData)
             ?? $this->getNonModelRequestData('plan', $userData);
 
-        if ($tenantId && $roleId) {
+        if ($tenantId) {
             $targetTenant = Tenant::query()->findOrFail($tenantId);
-            RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $targetTenant);
+            if ($roleId) {
+                RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $targetTenant);
+            }
+            if ($planProvided) {
+                PlanAssignments::ensureAssignableToTenantUser($planId, $targetTenant, 'plan_id', $user->id);
+            }
         }
 
         $user->update($userData);

@@ -25,7 +25,8 @@
     "require": {
         "php": "^8.5",
         "illuminate/support": "^12.0",
-        "laravel/sanctum": "^4.0"
+        "laravel/sanctum": "^4.0",
+        "phpseclib/phpseclib": "^3.0"
     },
     "autoload": {
         "psr-4": {

@@ -15,7 +15,7 @@ class NodeExplored
     public function __construct(public Node $node)
     {
         //
-        Audit::log('node "' . $node->name . '" explored', $node->tenant, null, [
+        Audit::debug('node "' . $node->name . '" explored', $node->tenant, null, [
             'node_id' => $node->id,
         ]);
     }

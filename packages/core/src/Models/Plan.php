@@ -4,6 +4,7 @@ namespace Froxlor\Core\Models;
 
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\IsTenantResource;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
@@ -16,7 +17,6 @@ use Illuminate\Support\Collection;
 /**
  * @property string $id
  * @property string|null $tenant_id
- * @property string $type
  * @property string $name
  * @property string|null $description
  * @property Carbon $created_at
@@ -28,7 +28,9 @@ use Illuminate\Support\Collection;
  */
 class Plan extends Model
 {
-    use HasUlids, IsResource, HasPermissions;
+    use HasUlids, IsResource, IsTenantResource, HasPermissions {
+        HasPermissions::getAllPermissions as protected getBasePermissions;
+    }
 
     protected $guarded = [];
 
@@ -50,11 +52,23 @@ class Plan extends Model
     }
 
     /**
-     * Limit the query to plans usable for environments.
+     * Return plan CRUD permissions plus resource-assignment permissions.
+     *
+     * Plan resources are managed as a separate API surface, mirroring role
+     * permissions, because changing a plan's resource limits is a security-sensitive
+     * quota change rather than a simple plan metadata update.
      */
-    public function scopeEnvironment(Builder $query): Builder
+    public static function getAllPermissions(): array
     {
-        return $query->where('type', 'environment');
+        return [
+            ...self::getBasePermissions(),
+            ['key' => 'plans.resources.*', 'name' => 'Manage plan resources'],
+            ['key' => 'plans.resources.index', 'name' => 'View plan resources'],
+            ['key' => 'plans.resources.store', 'name' => 'Assign plan resources'],
+            ['key' => 'plans.resources.destroy', 'name' => 'Remove plan resources'],
+            ['key' => 'plans.users.*', 'name' => 'Manage plan users'],
+            ['key' => 'plans.users.index', 'name' => 'View plan users'],
+        ];
     }
 
     /**
@@ -69,14 +83,6 @@ class Plan extends Model
             $query->whereNull('tenant_id')
                 ->orWhere('tenant_id', $tenant->id);
         });
-    }
-
-    /**
-     * Check whether this plan can be assigned to an environment.
-     */
-    public function isEnvironmentPlan(): bool
-    {
-        return $this->type === 'environment';
     }
 
     /**

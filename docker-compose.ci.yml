@@ -1,6 +1,7 @@
 services:
   froxlor:
     image: hub.froxlor.io/froxlor/froxlor:latest
+    command: ["php", "artisan", "serve"]
     privileged: true
     pid: "host"
     depends_on:

@@ -21,7 +21,7 @@ class OverviewSchema
     {
         return [
             Schemas\Schema::make('overview.stats')
-                ->gridCols('grid-cols-1 md:grid-cols-2 xl:grid-cols-3')
+                ->gridCols('grid-cols-1 md:grid-cols-2')
                 ->components([
                     InfoWidget::make('users_count')
                         ->title(trans('froxlor-core::generic.users'))

@@ -10,6 +10,7 @@ use Froxlor\Core\Services\Node\Traits\HasAdapter;
 use Froxlor\Core\Services\Traits\HasPermissions;
 use Froxlor\Core\Services\Traits\HasSettings;
 use Froxlor\Core\Services\Traits\IsResource;
+use Froxlor\Core\Services\Traits\IsTenantResource;
 use Illuminate\Database\Eloquent\Attributes\ObservedBy;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -46,7 +47,7 @@ use Illuminate\Support\Collection;
 #[ObservedBy(NodeObserver::class)]
 class Node extends Model
 {
-    use HasUlids, HasAdapter, HasPermissions, HasSettings, IsResource;
+    use HasUlids, HasAdapter, HasPermissions, HasSettings, IsResource, IsTenantResource;
 
     protected $guarded = [];
 

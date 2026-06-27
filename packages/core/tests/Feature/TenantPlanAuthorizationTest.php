@@ -17,7 +17,6 @@ class TenantPlanAuthorizationTest extends TestCase
         $planId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/plans', [
                 'name' => 'Tenant Policy Test Plan ' . str()->ulid(),
-                'type' => 'tenant',
                 'description' => 'Created by TenantPlanAuthorizationTest',
             ])
             ->assertCreated()
@@ -42,6 +41,26 @@ class TenantPlanAuthorizationTest extends TestCase
             ->assertNoContent();
     }
 
+    public function test_assigned_tenant_plan_cannot_be_deleted(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $plan = Plan::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Assigned Tenant Plan ' . str()->ulid(),
+        ]);
+        $originalPlanId = $tenant->plan_id;
+
+        $tenant->update(['plan_id' => $plan->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id . '/plans/' . $plan->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['plan']);
+
+        $tenant->update(['plan_id' => $originalPlanId]);
+    }
+
     public function test_unassigned_user_cannot_manage_tenant_plan(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
@@ -49,7 +68,6 @@ class TenantPlanAuthorizationTest extends TestCase
         $plan = Plan::query()->create([
             'tenant_id' => $tenant->id,
             'name' => 'Forbidden Tenant Policy Test Plan ' . str()->ulid(),
-            'type' => 'tenant',
         ]);
 
         $this->actingAs($user, 'sanctum')
@@ -63,7 +81,6 @@ class TenantPlanAuthorizationTest extends TestCase
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/plans', [
                 'name' => 'Forbidden Tenant Plan ' . str()->ulid(),
-                'type' => 'tenant',
             ])
             ->assertForbidden();
 

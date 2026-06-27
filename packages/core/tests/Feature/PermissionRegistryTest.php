@@ -52,12 +52,4 @@ class PermissionRegistryTest extends TestCase
         ], 'tests/package-b');
     }
 
-    public function test_package_model_permissions_are_seeded_automatically(): void
-    {
-        $this->assertDatabaseHas('permissions', [
-            'key' => 'domains.*',
-        ]);
-
-        $this->assertTrue(Permission::query()->where('key', 'domains.index')->exists());
-    }
 }

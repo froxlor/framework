@@ -212,7 +212,8 @@ class Resource
     private static function tenantPlanHasResourceAvailable(Tenant $tenant, string|Model $resource): bool
     {
         $resourceToCheck = $tenant->plan?->resources()
-            ->where('key', self::resourceKey($resource))
+            ->where('resources.key', self::resourceKey($resource))
+            ->where('resources.type', 'tenant')
             ->first();
 
         if (empty($resourceToCheck)) {

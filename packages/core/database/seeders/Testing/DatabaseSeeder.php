@@ -2,6 +2,7 @@
 
 namespace Froxlor\Core\Database\Seeders\Testing;
 
+use Froxlor\Core\Support\Setting;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -15,7 +16,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        Setting::set('auditlog.severity', 7, 'integer', 5);
+
         $this->call([
+            PlansAndResourcesTableSeeder::class,
             TenantAndUsersTableSeeder::class,
             TenantAndEnvironmentsTableSeeder::class,
             TenantUsagesTableSeeder::class,
