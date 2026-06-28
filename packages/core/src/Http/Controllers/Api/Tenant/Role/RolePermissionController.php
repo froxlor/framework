@@ -62,6 +62,7 @@ class RolePermissionController extends Controller
         $permission = Permission::findOrFail($data['permission_id']);
 
         abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key, $tenant), 403);
+        RoleAssignments::ensureNotAssignedToUser($role, $request->user(), $tenant);
 
         $role->permissions()->syncWithoutDetaching([
             $permission->id => ['inheritable' => $data['inheritable'] ?? false],
@@ -85,6 +86,7 @@ class RolePermissionController extends Controller
         Gate::authorize('tenantRoleDelete', [$permission, $tenant, $role]);
 
         abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key, $tenant), 403);
+        RoleAssignments::ensureNotAssignedToUser($role, $request->user(), $tenant);
 
         if (!$role->permissions()->where('permissions.id', $permission->id)->exists()) {
             throw ValidationException::withMessages([

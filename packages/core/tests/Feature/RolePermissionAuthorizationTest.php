@@ -176,6 +176,34 @@ class RolePermissionAuthorizationTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_user_cannot_remove_permission_from_own_global_role(): void
+    {
+        $user = User::query()->create([
+            'first_name' => 'Self',
+            'last_name' => 'Locked',
+            'email' => 'self-locked-global-' . str()->ulid() . '@froxlor.test',
+            'password' => 'secret-password',
+        ]);
+        $role = Role::query()->create([
+            'name' => 'Self Locked Global Role ' . str()->ulid(),
+        ]);
+        $wildcardPermission = Permission::query()->where('key', '*')->firstOrFail();
+        $permission = Permission::query()->where('key', 'users.index')->firstOrFail();
+
+        $role->permissions()->attach($wildcardPermission, ['inheritable' => true]);
+        $role->permissions()->attach($permission, ['inheritable' => true]);
+        $user->roles()->attach($role);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+
+        $this->assertTrue(
+            $role->permissions()->where('permissions.id', $permission->id)->exists()
+        );
+    }
+
     public function test_detaching_unassigned_global_role_permission_returns_validation_error(): void
     {
         $user = User::query()->where('email', config('dev.email'))->firstOrFail();

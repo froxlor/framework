@@ -76,6 +76,21 @@ class TenantRolePermissionAuthorizationTest extends TestCase
         $this->assertFalse($unassigned['inheritable']);
     }
 
+    public function test_global_role_permissions_are_managed_through_global_routes(): void
+    {
+        $tenant = Tenant::query()->where('name', 'Froxlor')->firstOrFail();
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+        $role = Role::query()->whereNull('tenant_id')->where('name', 'Reseller')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/roles/' . $role->id . '/permissions')
+            ->assertOk();
+
+        $this->actingAs($user, 'sanctum')
+            ->getJson('/api/tenants/' . $tenant->id . '/roles/' . $role->id . '/permissions')
+            ->assertForbidden();
+    }
+
     public function test_tenant_admin_cannot_assign_non_delegable_permission_to_tenant_role(): void
     {
         $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
@@ -92,6 +107,36 @@ class TenantRolePermissionAuthorizationTest extends TestCase
                 'inheritable' => false,
             ])
             ->assertForbidden();
+    }
+
+    public function test_user_cannot_remove_permission_from_own_tenant_role(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->create([
+            'first_name' => 'Self',
+            'last_name' => 'Tenant Locked',
+            'email' => 'self-locked-tenant-' . str()->ulid() . '@froxlor.test',
+            'password' => 'secret-password',
+        ]);
+        $role = Role::query()->create([
+            'tenant_id' => $tenant->id,
+            'name' => 'Self Locked Tenant Role ' . str()->ulid(),
+        ]);
+        $wildcardPermission = Permission::query()->where('key', '*')->firstOrFail();
+        $permission = Permission::query()->where('key', 'tenants.users.index')->firstOrFail();
+
+        $role->permissions()->attach($wildcardPermission, ['inheritable' => true]);
+        $role->permissions()->attach($permission, ['inheritable' => true]);
+        $user->tenants()->attach($tenant, ['role_id' => $role->id]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id . '/roles/' . $role->id . '/permissions/' . $permission->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['role']);
+
+        $this->assertTrue(
+            $role->permissions()->where('permissions.id', $permission->id)->exists()
+        );
     }
 
     public function test_tenant_role_permission_route_rejects_foreign_and_global_roles(): void

@@ -2,10 +2,6 @@
 
 namespace Froxlor\Core\Console\Commands;
 
-use Froxlor\Core\Models\Plan;
-use Froxlor\Core\Models\Role;
-use Froxlor\Core\Models\Tenant;
-use Froxlor\Core\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 
