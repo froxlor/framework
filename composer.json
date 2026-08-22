@@ -46,7 +46,6 @@
     },
     "autoload": {
         "psr-4": {
-            "Froxlor\\Auth\\": "packages/auth/src",
             "Froxlor\\Core\\": "packages/core/src",
             "Froxlor\\Core\\Database\\Factories\\": "packages/core/database/factories/",
             "Froxlor\\Core\\Database\\Seeders\\": "packages/core/database/seeders/",
@@ -71,9 +70,8 @@
         ]
     },
     "replace": {
-        "froxlor/auth": "self.version",
         "froxlor/core": "self.version",
-        "froxlor/package": "self.version",
+        "froxlor/packages": "self.version",
         "froxlor/ui": "self.version"
     },
     "extra": {
@@ -82,7 +80,6 @@
         },
         "laravel": {
             "providers": [
-                "Froxlor\\Auth\\Providers\\FroxlorAuthServiceProvider",
                 "Froxlor\\Core\\Providers\\EventServiceProvider",
                 "Froxlor\\Core\\Providers\\FroxlorCoreServiceProvider",
                 "Froxlor\\Core\\Providers\\HorizonServiceProvider",

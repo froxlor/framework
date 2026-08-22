@@ -54,6 +54,14 @@ new class extends Component
                     @endforeach
                 </x-ui::navigation.list>
             @endif
+            <!-- Notifications -->
+            @if($user)
+                <x-ui::navigation.list>
+                    <x-ui::navigation.item>
+                        <livewire:ui::navigations.notifications/>
+                    </x-ui::navigation.item>
+                </x-ui::navigation.list>
+            @endif
             <!-- User Navigation -->
             @if($userNavigation)
                 <x-ui::navigation.list>

@@ -1,0 +1,14 @@
+{
+    "packages": [
+        {
+            "name": "froxlor/example",
+            "title": "Example Package",
+            "description": "A minimal reference package demonstrating the froxlor third-party package/plugin structure.",
+            "content": "# Example Package\n\nThis package is a **minimal reference implementation** of a froxlor v3 package. It shows the folder layout, service provider conventions, and composer metadata a third-party package needs to be discoverable and installable through the package manager.\n\n## What it demonstrates\n\n- A self-contained `composer.json` with the `extra.froxlor.type` marker\n- A service provider extending `PackageServiceProvider`\n- Registering routes, views, and translations under a package namespace\n\nUse it as a starting point when building your own froxlor package.",
+            "image": null,
+            "price": 0,
+            "currency": "EUR",
+            "website": "https://www.froxlor.org"
+        }
+    ]
+}

@@ -21,6 +21,7 @@ class Schema extends ResourceComponent
     protected array $fillable = [
         'key', 'title', 'description', 'teaser', 'actions', 'schema', 'props',
         'push', 'fetch', 'cols', 'grid_cols', 'filters', 'intended', 'redirectFirst',
+        'notification',
     ];
 
     public int $cols = 1;

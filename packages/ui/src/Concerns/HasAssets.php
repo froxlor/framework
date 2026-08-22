@@ -2,7 +2,9 @@
 
 namespace Froxlor\UI\Concerns;
 
+use Froxlor\Core\Models\Setting as SettingModel;
 use Froxlor\Core\Support\Setting;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
 
 trait HasAssets
@@ -55,22 +57,40 @@ trait HasAssets
     }
 
     /**
-     * Get the style tag for theme adjustments.
+     * Get the style tag for theme adjustments, built from the individual
+     * `appearance.colors.*` settings rows (one setting per CSS variable).
      */
     private static function getCssVariables(): string
     {
-        $theme = collect(Setting::get('ui.colors.base', []))
-            ->map(fn($value, $key) => "--{$key}: {$value};")
-            ->implode(' ');
+        $colors = SettingModel::query()
+            ->where('category', 'appearance')
+            ->where('key', 'like', 'colors.%')
+            ->get();
 
-        $themeDark = collect(Setting::get('ui.colors.dark', []))
-            ->map(fn($value, $key) => "--{$key}: {$value};")
-            ->implode(' ');
+        $theme = self::cssVariables($colors, 'colors.base.');
+        $themeDark = self::cssVariables($colors, 'colors.dark.');
 
-        $variant = in_array(Setting::get('ui.theme'), ['light', 'dark'])
+        $variant = in_array(Setting::get('appearance.theme'), ['light', 'dark'])
             ? '@custom-variant dark (&:where(.dark, .dark *));'
             : '';
 
         return "<style type=\"text/tailwindcss\">$variant @theme { $theme } @layer theme { :root, :host { @variant dark { $themeDark } } }</style>";
+    }
+
+    /**
+     * Map settings whose key starts with the given prefix to CSS variable
+     * declarations, e.g. `colors.base.color-primary` => `--color-primary: ...;`.
+     */
+    private static function cssVariables(Collection $colors, string $prefix): string
+    {
+        return $colors
+            ->filter(fn(SettingModel $setting) => str_starts_with($setting->key, $prefix))
+            ->map(function (SettingModel $setting) use ($prefix) {
+                $value = $setting->value ?? $setting->default_value;
+
+                return $value ? '--' . substr($setting->key, strlen($prefix)) . ": {$value};" : null;
+            })
+            ->filter()
+            ->implode(' ');
     }
 }

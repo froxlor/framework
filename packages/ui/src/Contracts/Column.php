@@ -21,6 +21,12 @@ abstract class Column implements Payloadable, Resolvable
 
     public bool $searchable = false;
 
+    // Real column to sort by instead of $key, for keys backed by an accessor rather than a raw column
+    public ?string $sortUsing = null;
+
+    /** @var string[]|null Real column(s) to search against instead of $key, for accessor-backed keys */
+    public ?array $searchUsing = null;
+
     public bool $toggleable = false;
 
     public bool $isHiddenByDefault = false;
@@ -51,15 +57,29 @@ abstract class Column implements Payloadable, Resolvable
         return $this;
     }
 
-    public function sortable(callable|bool $value = true): static
+    public function sortable(callable|bool|string $value = true): static
     {
+        if (is_string($value)) {
+            $this->sortUsing = $value;
+            $this->sortable = true;
+
+            return $this;
+        }
+
         $this->sortable = $value;
 
         return $this;
     }
 
-    public function searchable(callable|bool $value = true): static
+    public function searchable(callable|bool|string|array $value = true): static
     {
+        if (is_string($value) || is_array($value)) {
+            $this->searchUsing = (array)$value;
+            $this->searchable = true;
+
+            return $this;
+        }
+
         $this->searchable = $value;
 
         return $this;
@@ -80,6 +100,8 @@ abstract class Column implements Payloadable, Resolvable
         $clone->type = AttributeResolver::value($this->type, $context);
         $clone->sortable = (bool)AttributeResolver::value($this->sortable, $context);
         $clone->searchable = (bool)AttributeResolver::value($this->searchable, $context);
+        $clone->sortUsing = $this->sortUsing;
+        $clone->searchUsing = $this->searchUsing;
         $clone->toggleable = (bool)AttributeResolver::value($this->toggleable, $context);
         $clone->isHiddenByDefault = (bool)AttributeResolver::value($this->isHiddenByDefault, $context);
 
@@ -94,6 +116,8 @@ abstract class Column implements Payloadable, Resolvable
             'type' => AttributeResolver::value($this->type),
             'sortable' => AttributeResolver::value($this->sortable) ?? false,
             'searchable' => AttributeResolver::value($this->searchable) ?? false,
+            'sortUsing' => $this->sortUsing,
+            'searchUsing' => $this->searchUsing,
             'toggleable' => AttributeResolver::value($this->toggleable) ?? false,
             'isHiddenByDefault' => AttributeResolver::value($this->isHiddenByDefault) ?? false,
             'view' => $this->view,

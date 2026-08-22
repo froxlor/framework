@@ -1,1 +1,1 @@
-<span {{ $attributes->twMerge('block w-full border-t dark:border-zinc-950') }}></span>
+<span {{ $attributes->twMerge('block w-full border-t border-zinc-200 dark:border-zinc-950') }}></span>

@@ -43,8 +43,12 @@ class SettingsController extends Controller
                 continue;
             }
 
+            $value = $this->castIncomingValue($request->input($fieldKey), $setting, $fieldKey);
+
+            $this->validateIncomingValue($value, $setting, $fieldKey);
+
             $setting->update([
-                'value' => $this->castIncomingValue($request->input($fieldKey), $setting, $fieldKey),
+                'value' => $value,
             ]);
         }
 
@@ -94,6 +98,45 @@ class SettingsController extends Controller
             'array', 'json' => $this->decodeJsonValue($value, $fieldKey),
             default => $value,
         };
+    }
+
+    /**
+     * Enforce the constraints a setting declares in its properties column:
+     * `options` (allowed values), `min`/`max` (numeric bounds) and, for the
+     * color type, a hex color format.
+     */
+    private function validateIncomingValue(mixed $value, Setting $setting, string $fieldKey): void
+    {
+        if ($value === null || $value === '') {
+            return;
+        }
+
+        $options = $setting->properties['options'] ?? null;
+        if (is_array($options) && (!is_scalar($value) || !array_key_exists((string) $value, $options))) {
+            throw ValidationException::withMessages([
+                $fieldKey => trans('froxlor-core::settings.invalid_option'),
+            ]);
+        }
+
+        if (is_int($value) || is_float($value)) {
+            $min = $setting->properties['min'] ?? null;
+            $max = $setting->properties['max'] ?? null;
+
+            if ((is_numeric($min) && $value < $min) || (is_numeric($max) && $value > $max)) {
+                throw ValidationException::withMessages([
+                    $fieldKey => trans('froxlor-core::settings.out_of_range', [
+                        'min' => $min ?? '-∞',
+                        'max' => $max ?? '∞',
+                    ]),
+                ]);
+            }
+        }
+
+        if (strtolower((string) $setting->type) === 'color' && !preg_match('/^#[0-9a-f]{3}(?:[0-9a-f]{3})?$/i', (string) $value)) {
+            throw ValidationException::withMessages([
+                $fieldKey => trans('froxlor-core::settings.invalid_color'),
+            ]);
+        }
     }
 
     private function decodeJsonValue(mixed $value, string $fieldKey): mixed

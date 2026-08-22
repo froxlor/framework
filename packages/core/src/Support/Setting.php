@@ -4,6 +4,7 @@ namespace Froxlor\Core\Support;
 
 use Exception;
 use Froxlor\Core\Models\Setting as SettingModel;
+use Illuminate\Database\QueryException;
 use Froxlor\Core\Services\Traits\HasSettings;
 use Illuminate\Database\Eloquent\Model;
 
@@ -13,11 +14,18 @@ class Setting
     {
         $s = self::parsePath($path);
 
-        $setting = SettingModel::query()
-            ->select('value', 'type')
-            ->where('category', $s['category'])
-            ->where('key', $s['key'])
-            ->first();
+        try {
+            $setting = SettingModel::query()
+                ->select('value', 'type')
+                ->where('category', $s['category'])
+                ->where('key', $s['key'])
+                ->first();
+        } catch (QueryException) {
+            // Settings are read during provider boot (e.g. PackageServiceProvider::isEnabled())
+            // and from migrations, both of which can run before the settings table exists
+            // (fresh install, migrate:fresh). Fall back to the default in that case.
+            return $default;
+        }
 
         if (!$setting) {
             return $default;

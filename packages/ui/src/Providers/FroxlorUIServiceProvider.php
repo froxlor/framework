@@ -4,7 +4,6 @@ namespace Froxlor\UI\Providers;
 
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
-use Froxlor\UI\Pushable\SettingLink;
 use Froxlor\UI\Pushable\UserDropdownLink;
 use Froxlor\UI\Support\UI;
 use Illuminate\Foundation\Console\AboutCommand;
@@ -21,10 +20,6 @@ class FroxlorUIServiceProvider extends PackageServiceProvider
 
         // Migrations
         $this->loadMigrationsFrom(__DIR__ . '/../../database/migrations');
-
-        // Routes
-        $this->loadRoutesFrom(__DIR__ . '/../../routes/api.php');
-        $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
 
         // Views
         $this->loadViewsFrom(__DIR__ . '/../../resources/views', 'ui');
@@ -68,13 +63,6 @@ class FroxlorUIServiceProvider extends PackageServiceProvider
     private function extendUserInterface(): void
     {
         UI::push('sidebar');
-
-        UI::push('settings', items: [
-            SettingLink::make('appearance')
-                ->label(trans('froxlor-ui::generic.appearance'))
-                ->route(fn() => route('ui.appearance.index'))
-                ->icon('paint-bucket'),
-        ]);
 
         UI::push('user', items: [
             UserDropdownLink::make('tenant')

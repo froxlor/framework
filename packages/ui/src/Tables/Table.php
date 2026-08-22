@@ -129,6 +129,14 @@ class Table extends ResourceComponent
                 $column->format_value = null;
             }
 
+            if (is_object($column) && isset($column->descriptionLines) && is_array($column->descriptionLines)) {
+                $column->descriptionLines = self::stripDescriptionLineCallables($column->descriptionLines);
+            }
+
+            if (is_object($column) && isset($column->tooltip) && is_callable($column->tooltip)) {
+                $column->tooltip = null;
+            }
+
             return $column;
         }, $payload['columns'] ?? []);
 
@@ -138,5 +146,16 @@ class Table extends ResourceComponent
     protected function normalizableProperties(): array
     {
         return array_merge(parent::normalizableProperties(), ['bulkActions']);
+    }
+
+    protected static function stripDescriptionLineCallables(array $lines): array
+    {
+        return array_map(function ($line) {
+            if (is_array($line) && is_callable($line['value'] ?? null)) {
+                $line['value'] = null;
+            }
+
+            return $line;
+        }, $lines);
     }
 }

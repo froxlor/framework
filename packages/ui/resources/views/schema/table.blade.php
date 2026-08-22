@@ -22,6 +22,7 @@ new class extends Component {
 
         $this->registerActionHandlers();
         $this->resolveVisibleActions();
+        $this->resolveDisabledActions();
         $this->stripCallables();
         $this->maybeRedirectFirst();
     }
@@ -120,6 +121,35 @@ new class extends Component {
         }, $this->rows);
     }
 
+    private function resolveDisabledActions(): void
+    {
+        if (!is_iterable($this->resource->columnActions ?? null)) {
+            return;
+        }
+
+        $this->rows = array_map(function (array $row) {
+            foreach ($this->resource->columnActions as $action) {
+                $disabled = $action->disabled ?? false;
+
+                if (!is_callable($disabled)) {
+                    continue;
+                }
+
+                data_set(
+                    $row,
+                    '__disabled_actions.' . ($action->key ?? ''),
+                    (bool)app()->call($disabled, [
+                        'row' => $row,
+                        'action' => $action,
+                        'resource' => $this->resource,
+                    ])
+                );
+            }
+
+            return $row;
+        }, $this->rows);
+    }
+
     private function stripCallables(): void
     {
         $this->resource->bulkActions = array_map(function ($action) {
@@ -135,12 +165,30 @@ new class extends Component {
                 $action->visible = true;
             }
 
+            if (is_object($action) && isset($action->disabled) && is_callable($action->disabled)) {
+                $action->disabled = false;
+            }
+
             return $action;
         }, $this->resource->columnActions ?? []);
 
         $this->resource->columns = array_map(function ($column) {
             if (is_object($column) && isset($column->formatValue) && is_callable($column->formatValue)) {
                 $column->formatValue = null;
+            }
+
+            if (is_object($column) && isset($column->descriptionLines) && is_array($column->descriptionLines)) {
+                $column->descriptionLines = array_map(function ($line) {
+                    if (is_array($line) && is_callable($line['value'] ?? null)) {
+                        $line['value'] = null;
+                    }
+
+                    return $line;
+                }, $column->descriptionLines);
+            }
+
+            if (is_object($column) && isset($column->tooltip) && is_callable($column->tooltip)) {
+                $column->tooltip = null;
             }
 
             return $column;
@@ -394,7 +442,7 @@ new class extends Component {
     @if($searchableColumns->count() || $toggleableColumns->count())
         <div class="flex justify-end gap-2 flex-wrap">
             @if($toggleableColumns->count())
-                <x-ui::dropdown width="48" contentClasses="p-3 bg-zinc-900" :closeOnContentClick="false">
+                <x-ui::dropdown width="48" contentClasses="p-3 bg-white dark:bg-zinc-900" :closeOnContentClick="false">
                     <x-slot name="trigger">
                         <x-ui::button variant="ghost" icon="columns-3">
                             {{ trans('froxlor-core::generic.columns') }}
@@ -406,7 +454,7 @@ new class extends Component {
                             <input type="hidden" name="toggleable_state" value="1">
                             <div class="space-y-2">
                                 @foreach($toggleableColumns as $column)
-                                    <label class="flex items-center gap-2 text-sm text-zinc-100 px-1 py-1">
+                                    <label class="flex items-center gap-2 text-sm text-zinc-900 dark:text-zinc-100 px-1 py-1">
                                         <input
                                             type="checkbox"
                                             name="visible[]"
@@ -684,9 +732,11 @@ new class extends Component {
                         {{-- actions --}}
                         @if($columnActions->isNotEmpty())
                             <td class="px-4 py-3 text-right">
-                                @foreach ($columnActions as $actionKey => $action)
-                                    @livewire($action->view, ['resource' => $resource, 'action' => $action, 'row' => $row, 'value' => $value], $rowKey . '-action-' . $actionKey)
-                                @endforeach
+                                <div class="flex items-center justify-end gap-1">
+                                    @foreach ($columnActions as $actionKey => $action)
+                                        @livewire($action->view, ['resource' => $resource, 'action' => $action, 'row' => $row, 'value' => $value], $rowKey . '-action-' . $actionKey)
+                                    @endforeach
+                                </div>
                             </td>
                         @endif
                     </tr>

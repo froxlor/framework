@@ -14,7 +14,9 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\DatabaseNotification;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -103,6 +105,26 @@ class User extends Authenticatable
     public function name(): Attribute
     {
         return Attribute::get(fn() => trim($this->first_name . ' ' . $this->last_name) ?: $this->company_name ?: 'N/A');
+    }
+
+    /**
+     * All database notifications this user should see: notifications addressed to the
+     * user directly plus notifications addressed to any tenant the user is a member of
+     * (e.g. system-wide notices sent to the root tenant).
+     */
+    public function relevantNotifications(): Builder
+    {
+        return DatabaseNotification::query()
+            ->where(function (Builder $query) {
+                $query->where(function (Builder $query) {
+                    $query->where('notifiable_type', $this->getMorphClass())
+                        ->where('notifiable_id', $this->getKey());
+                })->orWhere(function (Builder $query) {
+                    $query->where('notifiable_type', (new Tenant())->getMorphClass())
+                        ->whereIn('notifiable_id', $this->tenants()->select('tenants.id'));
+                });
+            })
+            ->latest();
     }
 
     /**

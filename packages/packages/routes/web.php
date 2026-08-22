@@ -10,6 +10,18 @@ Route::middleware(['web', 'auth', EnsureIsInstalled::class])->group(function () 
     Route::get('packages/{package}/uninstall', [Web\PackageController::class, 'uninstall'])
         ->name('packages.uninstall');
 
+    Route::post('packages/{package}/enable', [Web\SafeModeController::class, 'enable'])
+        ->name('packages.safe-mode.enable');
+
+    Route::post('packages/{package}/activate', [Web\PackageStateController::class, 'enable'])
+        ->name('packages.enable');
+
+    Route::post('packages/{package}/deactivate', [Web\PackageStateController::class, 'disable'])
+        ->name('packages.disable');
+
+    Route::get('packages/{package}/complete', [Web\PackageStateController::class, 'complete'])
+        ->name('packages.complete');
+
     Route::post('packages/package/upgrade', [Web\PackageController::class, 'upgrade'])
         ->name('packages.packages.upgrade');
     Route::resource('packages', Web\PackageController::class)
@@ -18,7 +30,10 @@ Route::middleware(['web', 'auth', EnsureIsInstalled::class])->group(function () 
 
     Route::resource('packages/discovery', Web\DiscoveryController::class)
         ->names('packages.discovery')
-        ->only(['index', 'create']);
+        ->only(['index']);
+
+    Route::get('packages/marketplace-credentials', [Web\MarketplaceCredentialsController::class, 'edit'])
+        ->name('packages.marketplace-credentials.edit');
 
     Route::resource('packages/updater', Web\UpdaterController::class)
         ->names('packages.updater')
@@ -26,8 +41,6 @@ Route::middleware(['web', 'auth', EnsureIsInstalled::class])->group(function () 
 
     Route::post('packages/repositories/switch', [Web\RepositoryController::class, 'switch'])
         ->name('packages.repositories.switch');
-    Route::post('packages/repositories/update', [Web\RepositoryController::class, 'update'])
-        ->name('packages.repositories.update');
     Route::resource('packages/repositories', Web\RepositoryController::class)
         ->names('packages.repositories')
         ->only(['index', 'create', 'edit', 'destroy']);

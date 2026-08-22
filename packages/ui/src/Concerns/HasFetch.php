@@ -100,6 +100,8 @@ trait HasFetch
             'key' => $key,
             'sortable' => (bool)$this->col($column, 'sortable'),
             'searchable' => (bool)$this->col($column, 'searchable'),
+            'sortUsing' => $this->col($column, 'sortUsing'),
+            'searchUsing' => $this->col($column, 'searchUsing'),
             'toggleable' => (bool)$this->col($column, 'toggleable'),
             'isHiddenByDefault' => (bool)$this->col($column, 'isHiddenByDefault'),
             'html' => (bool)$this->col($column, 'html'),
@@ -108,11 +110,21 @@ trait HasFetch
 
     protected function getSearchableColumns(array $columns): array
     {
-        return array_values(array_filter(array_map(function ($col) {
-            return $this->col($col, 'searchable')
-                ? $this->col($col, 'key')
-                : null;
-        }, $columns)));
+        $searchColumns = [];
+
+        foreach ($columns as $col) {
+            if (!$this->col($col, 'searchable')) {
+                continue;
+            }
+
+            $using = $this->col($col, 'searchUsing') ?: [$this->col($col, 'key')];
+
+            foreach ($using as $column) {
+                $searchColumns[] = $column;
+            }
+        }
+
+        return array_values(array_unique(array_filter($searchColumns)));
     }
 
     protected function col(mixed $column, string $key, mixed $default = null): mixed
@@ -184,21 +196,87 @@ trait HasFetch
         return array_map(function (array $row) use ($columns) {
             foreach ($columns as $column) {
                 $key = $this->col($column, 'key');
-                $formatter = $this->col($column, 'formatValue');
 
-                if (!$key || !is_callable($formatter)) {
+                if (!$key) {
                     continue;
                 }
 
-                data_set($row, $key, app()->call($formatter, [
-                    'value' => data_get($row, $key),
-                    'row' => $row,
-                    'column' => $column,
-                ]));
+                // Resolve description/tooltip content from the raw row value first, so they
+                // can see the original data (e.g. the full dependency array) even when the
+                // column's own formatValue() collapses it into a compact summary below.
+                $descriptionLines = $this->resolveDescriptionLines($column, $row, $key);
+
+                if ($descriptionLines !== []) {
+                    data_set($row, '__descriptions.' . $key, $descriptionLines);
+                }
+
+                $tooltip = $this->resolveTooltip($column, $row, $key);
+
+                if ($tooltip !== null) {
+                    data_set($row, '__tooltip.' . $key, $tooltip);
+                }
+
+                $formatter = $this->col($column, 'formatValue');
+
+                if (is_callable($formatter)) {
+                    data_set($row, $key, app()->call($formatter, [
+                        'value' => data_get($row, $key),
+                        'row' => $row,
+                        'column' => $column,
+                    ]));
+                }
             }
 
             return $row;
         }, $rows);
+    }
+
+    /**
+     * Resolve a column's stacked description lines (see TextColumn::description())
+     * into their final, per-row text/markup, dropping any that resolve to nothing.
+     */
+    protected function resolveDescriptionLines(mixed $column, array $row, string $key): array
+    {
+        $lines = $this->col($column, 'descriptionLines');
+
+        if (!is_array($lines) || $lines === []) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(function ($line) use ($row, $column, $key) {
+            $value = is_array($line) ? ($line['value'] ?? null) : null;
+            $html = is_array($line) && ($line['html'] ?? false);
+
+            $value = is_callable($value)
+                ? app()->call($value, ['value' => data_get($row, $key), 'row' => $row, 'column' => $column])
+                : $value;
+
+            if ($value === null || $value === '') {
+                return null;
+            }
+
+            return ['value' => $value, 'html' => $html];
+        }, $lines)));
+    }
+
+    /**
+     * Resolve a column's tooltip content (see TooltipColumn::tooltip()) for a single
+     * row, so wide/long values (e.g. long lists) can render compactly with the full
+     * detail available on hover instead of breaking the table layout.
+     */
+    protected function resolveTooltip(mixed $column, array $row, string $key): ?string
+    {
+        $tooltip = $this->col($column, 'tooltip');
+
+        if ($tooltip === null || $tooltip === '') {
+            return null;
+        }
+
+        $tooltip = is_callable($tooltip)
+            ? app()->call($tooltip, ['value' => data_get($row, $key), 'row' => $row, 'column' => $column])
+            : $tooltip;
+
+        return ($tooltip !== null && $tooltip !== '') ? (string)$tooltip : null;
     }
 
     protected function applyLocalSearchAndSort(array $rows, array $table): array

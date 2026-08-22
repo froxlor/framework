@@ -1,18 +1,18 @@
 <div class="shrink-0 pb-4">
     <x-ui::sidebar.group>
         <x-ui::sidebar.group-content
-            x-bind:class="collapsed && desktop ? 'bg-transparent px-2 pt-0 pb-0' : 'rounded-md bg-black/40 px-4 pt-4 pb-2'"
+            x-bind:class="collapsed && desktop ? 'bg-transparent px-2 pt-0 pb-0' : 'rounded-md bg-zinc-900/5 dark:bg-black/40 px-4 pt-4 pb-2'"
             class="list-none"
         >
             <div x-bind:class="collapsed && desktop ? 'flex w-full justify-center' : ''">
-                <x-ui::dropdown align="left" width="w-[min(24rem,calc(100vw-2rem))]" content-classes="bg-zinc-950 py-2" :close-on-content-click="false">
+                <x-ui::dropdown align="left" width="w-[min(24rem,calc(100vw-2rem))]" content-classes="bg-white dark:bg-zinc-950 py-2" :close-on-content-click="false">
                     <x-slot:trigger>
                         <div class="flex w-full items-center gap-3" :class="collapsed && desktop ? 'min-h-10 justify-center rounded-md px-2' : ''">
                             <x-ui::avatar variant="square" class="shrink-0" x-bind:class="collapsed && desktop ? 'size-12' : 'size-8'">
                                 <x-ui::avatar.fallback variant="square">{{ $currentTenant?->initials ?? 'T' }}</x-ui::avatar.fallback>
                             </x-ui::avatar>
                             <div class="min-w-0" x-cloak x-show="!collapsed || !desktop">
-                                <div class="truncate text-sm font-medium text-zinc-100">
+                                <div class="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                     {{ $currentTenant?->name ?? 'Select tenant' }}
                                 </div>
                                 <div class="truncate text-xs text-zinc-500">
@@ -36,13 +36,13 @@
                             x-init="$watch('open', (value) => { if (value) { $nextTick(() => $refs.tenantSearch?.focus()) } })"
                             class="space-y-2"
                         >
-                            <div class="sticky top-0 z-10 space-y-2 bg-zinc-950 px-2 pb-2">
+                            <div class="sticky top-0 z-10 space-y-2 bg-white dark:bg-zinc-950 px-2 pb-2">
                                 <x-ui::input
                                     x-ref="tenantSearch"
                                     x-model="search"
                                     type="search"
                                     placeholder="Search tenants..."
-                                    class="border-zinc-700 bg-zinc-900 text-zinc-100 placeholder:text-zinc-500 focus:border-primary"
+                                    class="dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder:text-zinc-500"
                                 />
                             </div>
 
@@ -57,9 +57,9 @@
                                             wire:navigate
                                             href="{{ route('tenants.show', ['tenant' => $tenant->id]) }}"
                                             @class([
-                                                'w-full rounded-md text-zinc-100 hover:text-zinc-100',
+                                                'w-full rounded-md text-zinc-900 hover:text-zinc-900 dark:text-zinc-100 dark:hover:text-zinc-100',
                                                 'bg-primary/15 hover:bg-primary/20' => (string) $tenant->id === (string) $currentTenantId,
-                                                'hover:rounded-md hover:bg-zinc-800' => (string) $tenant->id !== (string) $currentTenantId,
+                                                'hover:rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800' => (string) $tenant->id !== (string) $currentTenantId,
                                             ])
                                         >
                                             <div class="flex w-full items-center gap-3">
@@ -68,7 +68,7 @@
                                                 </x-ui::avatar>
                                                 <div class="min-w-0 flex-1">
                                                     <div class="flex items-center gap-2">
-                                                        <div class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-100">
+                                                        <div class="min-w-0 flex-1 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
                                                             {{ $tenant->name }}
                                                         </div>
                                                         @if((string) $tenant->id === (string) $currentTenantId)

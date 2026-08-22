@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -39,7 +40,7 @@ use Illuminate\Support\Facades\DB;
  */
 class Tenant extends Model
 {
-    use HasUlids, IsResource, IsTenantResource, HasPermissions;
+    use HasUlids, IsResource, IsTenantResource, HasPermissions, Notifiable;
 
     public $guarded = [];
 

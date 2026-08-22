@@ -13,14 +13,12 @@ class AuditLogTable
                 ->label(trans('froxlor-core::generic.action'))
                 ->sortable(),
 
-            TextColumn::make('tenant')
+            TextColumn::make('tenant.name')
                 ->label(trans('froxlor-core::generic.tenant'))
-                ->searchable()
-                ->sortable(),
+                ->searchable(),
 
-            TextColumn::make('environment')
-                ->label(trans('froxlor-core::generic.environment'))
-                ->sortable(),
+            TextColumn::make('environment.name')
+                ->label(trans('froxlor-core::generic.environment')),
 
             TextColumn::make('created_at')
                 ->label(trans('froxlor-core::generic.created_at'))

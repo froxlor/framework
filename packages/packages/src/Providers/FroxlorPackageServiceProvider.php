@@ -5,9 +5,11 @@ namespace Froxlor\Packages\Providers;
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Packages\Services\PackageService;
+use Froxlor\Packages\Support\SafeModeRegistry;
 use Froxlor\UI\Pushable\NavbarLink;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Support\UI;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 
@@ -43,6 +45,12 @@ class FroxlorPackageServiceProvider extends PackageServiceProvider
         // Cli commands
         $this->loadCommandsFrom(__DIR__ . '/../Console');
 
+        // Schedule
+        $this->app->booted(function () {
+            $schedule = $this->app->make(Schedule::class);
+            $schedule->command('froxlor:packages:check-updates')->daily();
+        });
+
         // User Interface
         $this->extendUserInterface();
     }
@@ -62,6 +70,24 @@ class FroxlorPackageServiceProvider extends PackageServiceProvider
                 ->active(fn() => request()->routeIs('packages.*'))
                 ->visible(fn() => app(PackageService::class)->hasAvailableUpdates())
                 ->icon('package-2'),
+
+            NavbarLink::make('safe-mode')
+                ->label(trans('froxlor-packages::generic.package_disabled_notice'))
+                ->route(fn() => route('packages.index'))
+                ->active(fn() => request()->routeIs('packages.*'))
+                ->visible(fn() => app(SafeModeRegistry::class)->disabled() !== [])
+                ->icon('shield-alert'),
+
+            NavbarLink::make('pending-completion')
+                ->label(trans('froxlor-packages::generic.package_update_pending_notice'))
+                ->route(function () {
+                    $pending = app(PackageService::class)->pendingCompletions();
+
+                    return $pending === [] ? route('packages.index') : route(reset($pending)['route']);
+                })
+                ->active(fn() => request()->routeIs('packages.*'))
+                ->visible(fn() => app(PackageService::class)->pendingCompletions() !== [])
+                ->icon('circle-alert'),
         ]);
 
         UI::push('sidebar-footer', items: [

@@ -42,9 +42,7 @@ class SettingResource extends Resource
         }
 
         if ($requestedCategory = $this->requestedCategory($settings)) {
-            return [
-                $this->buildCategorySection($requestedCategory, $settings->where('category', $requestedCategory)->values()),
-            ];
+            return $this->buildCategorySections($requestedCategory, $settings->where('category', $requestedCategory)->values());
         }
 
         return [
@@ -65,24 +63,46 @@ class SettingResource extends Resource
     {
         return Schemas\Components\Tab::make($this->categoryTabKey($category))
             ->label($this->makeCategoryLabel($category))
-            ->components([$this->buildCategorySection($category, $settings)]);
+            ->components($this->buildCategorySections($category, $settings));
     }
 
-    private function buildCategorySection(string $category, Collection $settings): Schemas\Components\Section
+    /**
+     * A category renders as one section, or several when settings carry a
+     * `properties.group` key (sections appear in first-occurrence order).
+     *
+     * @return array<int, Schemas\Components\Section>
+     */
+    private function buildCategorySections(string $category, Collection $settings): array
     {
-        return Schemas\Components\Section::make('section_' . $category)
-            ->title($this->makeCategoryLabel($category))
+        $fieldKeys = $settings
+            ->mapWithKeys(fn (Setting $setting) => [$setting->key => $this->fieldKey($setting)])
+            ->all();
+
+        return $settings
+            ->groupBy(fn (Setting $setting) => (string) ($setting->properties['group'] ?? ''))
+            ->map(fn (Collection $groupSettings, string $group) => $this->buildCategorySection($category, $groupSettings, $fieldKeys, $group))
+            ->values()
+            ->all();
+    }
+
+    private function buildCategorySection(string $category, Collection $settings, array $fieldKeys, string $group = ''): Schemas\Components\Section
+    {
+        return Schemas\Components\Section::make('section_' . $category . ($group !== '' ? '_' . $group : ''))
+            ->title($group !== '' ? $this->makeCategoryLabel($group) : $this->makeCategoryLabel($category))
             ->description(trans('froxlor-core::settings.category_description', [
                 'count' => $settings->count(),
             ]))
             ->components(
                 $settings
-                    ->map(fn (Setting $setting) => $this->makeField($setting))
+                    ->map(fn (Setting $setting) => $this->makeField($setting, $fieldKeys))
                     ->all()
             );
     }
 
-    private function makeField(Setting $setting): object
+    /**
+     * @param array<string, string> $fieldKeys Setting key => form field key, for fields referencing sibling settings
+     */
+    private function makeField(Setting $setting, array $fieldKeys = []): object
     {
         $label = $setting->properties['label']
             ?? Str::of($setting->key)->replace(['.', '_', '-'], ' ')->headline()->toString();
@@ -90,6 +110,17 @@ class SettingResource extends Resource
         $value = $setting->value ?? $setting->default_value;
         $type = strtolower((string) $setting->type);
 
+        $field = $this->makeFieldComponent($setting, $fieldKey, $label, $value, $type, $fieldKeys);
+
+        if (isset($setting->properties['col'])) {
+            $field->col((string) $setting->properties['col']);
+        }
+
+        return $field;
+    }
+
+    private function makeFieldComponent(Setting $setting, string $fieldKey, string $label, mixed $value, string $type, array $fieldKeys): object
+    {
         if (($setting->properties['readonly'] ?? false) === true) {
             return Schemas\Components\Text::make($fieldKey)
                 ->label($label)
@@ -112,6 +143,8 @@ class SettingResource extends Resource
                 ->toggle()
                 ->col(3),
 
+            'color' => $this->makeColorField($setting, $fieldKey, $label, $value, $fieldKeys),
+
             'int', 'integer' => Forms\Components\TextInput::make($fieldKey)
                 ->label($label)
                 ->default($value)
@@ -131,6 +164,31 @@ class SettingResource extends Resource
 
             default => $this->makeStringField($fieldKey, $label, $value),
         };
+    }
+
+    /**
+     * `properties.shades` maps sibling setting keys to a lightness percentage;
+     * the sibling keys are translated to their generated form field keys so the
+     * client-side shade generator can fill those inputs.
+     */
+    private function makeColorField(Setting $setting, string $fieldKey, string $label, mixed $value, array $fieldKeys): Forms\Components\Color
+    {
+        $field = Forms\Components\Color::make($fieldKey)
+            ->label($label)
+            ->default($value)
+            ->col(3);
+
+        if (is_array($setting->properties['shades'] ?? null)) {
+            $field->generateShadesFor(
+                collect($setting->properties['shades'])
+                    ->mapWithKeys(fn ($lightness, string $settingKey) => [
+                        ($fieldKeys[$settingKey] ?? $settingKey) => (int) $lightness,
+                    ])
+                    ->all()
+            );
+        }
+
+        return $field;
     }
 
     private function makeStringField(string $fieldKey, string $label, mixed $value): object
@@ -179,7 +237,13 @@ class SettingResource extends Resource
         return $query
             ->orderBy('category')
             ->orderBy('key')
-            ->get();
+            ->get()
+            ->sortBy([
+                fn (Setting $a, Setting $b) => strcmp((string) $a->category, (string) $b->category),
+                fn (Setting $a, Setting $b) => ($a->properties['sort'] ?? PHP_INT_MAX) <=> ($b->properties['sort'] ?? PHP_INT_MAX),
+                fn (Setting $a, Setting $b) => strcmp($a->key, $b->key),
+            ])
+            ->values();
     }
 
     private function fieldKey(Setting $setting): string

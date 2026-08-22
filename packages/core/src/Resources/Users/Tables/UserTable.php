@@ -11,8 +11,8 @@ class UserTable
         return [
             Tables\Columns\TextColumn::make('name')
                 ->label(trans('froxlor-core::generic.name'))
-                ->searchable()
-                ->sortable(),
+                ->searchable(['first_name', 'last_name', 'company_name'])
+                ->sortable('first_name'),
 
             Tables\Columns\TextColumn::make('email')
                 ->label(trans('froxlor-core::generic.email'))

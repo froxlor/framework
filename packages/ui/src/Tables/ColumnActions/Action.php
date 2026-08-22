@@ -10,9 +10,18 @@ class Action extends BaseAction
 
     public mixed $visible = true;
 
+    public mixed $disabled = false;
+
     public function visible(callable|bool $value = true): static
     {
         $this->visible = $value;
+
+        return $this;
+    }
+
+    public function disabled(callable|bool $value = true): static
+    {
+        $this->disabled = $value;
 
         return $this;
     }
@@ -21,6 +30,7 @@ class Action extends BaseAction
     {
         $clone = parent::resolve($context);
         $clone->visible = $this->visible;
+        $clone->disabled = $this->disabled;
 
         return $clone;
     }
@@ -29,6 +39,7 @@ class Action extends BaseAction
     {
         $payload = parent::toPayload();
         $payload['visible'] = $this->visible;
+        $payload['disabled'] = $this->disabled;
 
         return $payload;
     }

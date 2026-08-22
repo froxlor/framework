@@ -29,10 +29,41 @@ new class extends Component {
             return;
         }
 
+        if ($intended === null) {
+            if ($notification = $this->resource->notification) {
+                $this->dispatch(
+                    'show-toast',
+                    title: data_get($notification, 'title'),
+                    description: data_get($notification, 'description'),
+                    variant: data_get($notification, 'variant'),
+                );
+            }
+
+            // redirect() normally calls this to avoid a needless re-render; do the same
+            // here since we're not navigating away either, just dispatching a toast.
+            $this->skipRender();
+
+            return;
+        }
+
         $this->redirect($intended);
     }
 
     private function setDataRecursively(array $items, array $data = []): array
+    {
+        $result = [];
+
+        foreach ($this->collectLeaves($items, $data) as $key => $value) {
+            data_set($result, $key, $value);
+        }
+
+        return $result;
+    }
+
+    // wire:model="data.colors.base.color-primary" resolves through nested arrays, so leaf
+    // keys (which may themselves contain dots, e.g. "colors.base.color-primary") can't be
+    // stored flat — collect them here, then data_set() nests them in setDataRecursively().
+    private function collectLeaves(array $items, array $data = []): array
     {
         $result = [];
 
@@ -46,7 +77,7 @@ new class extends Component {
             }
 
             if (isset($item->schema) && is_iterable($item->schema)) {
-                foreach ($this->setDataRecursively($item->schema, $data) as $k => $v) {
+                foreach ($this->collectLeaves($item->schema, $data) as $k => $v) {
                     $result[$k] = $v;
                 }
             }

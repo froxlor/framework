@@ -65,9 +65,9 @@
     @endphp
     <a wire:navigate href="{{ $prevHref }}" rel="prev" aria-label="Previous page"
        @class([
-           'inline-flex items-center justify-center rounded-md border text-sm h-9 min-w-9 px-2 outline-none',
-           'bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50' => !$prevDisabled,
-           'opacity-50 pointer-events-none bg-background dark:bg-input/30 dark:border-input' => $prevDisabled,
+           'inline-flex items-center justify-center rounded-md border text-sm h-9 min-w-9 px-2 outline-none border-zinc-200/70 bg-white/90 text-zinc-800 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100',
+           'shadow-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06]' => !$prevDisabled,
+           'opacity-50 pointer-events-none' => $prevDisabled,
        ])>
         <x-ui::icon name="chevron-left" />
         <span class="sr-only">Prev</span>
@@ -86,7 +86,7 @@
                @class([
                    'inline-flex items-center justify-center rounded-md border text-sm h-9 min-w-9 px-3 outline-none',
                    'bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 border-primary' => $isActive,
-                   'bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50' => !$isActive,
+                   'border-zinc-200/70 bg-white/90 text-zinc-800 shadow-xs hover:bg-zinc-100 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:hover:bg-white/[0.06]' => !$isActive,
                ])>
                 {{ $p }}
             </a>
@@ -100,9 +100,9 @@
     @endphp
     <a wire:navigate href="{{ $nextHref }}" rel="next" aria-label="Next page"
        @class([
-           'inline-flex items-center justify-center rounded-md border text-sm h-9 min-w-9 px-2 outline-none',
-           'bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50' => !$nextDisabled,
-           'opacity-50 pointer-events-none bg-background dark:bg-input/30 dark:border-input' => $nextDisabled,
+           'inline-flex items-center justify-center rounded-md border text-sm h-9 min-w-9 px-2 outline-none border-zinc-200/70 bg-white/90 text-zinc-800 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100',
+           'shadow-xs hover:bg-zinc-100 dark:hover:bg-white/[0.06]' => !$nextDisabled,
+           'opacity-50 pointer-events-none' => $nextDisabled,
        ])>
         <x-ui::icon name="chevron-right" />
         <span class="sr-only">Next</span>

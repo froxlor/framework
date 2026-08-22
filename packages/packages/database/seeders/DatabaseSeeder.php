@@ -16,38 +16,6 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // call required package seeders
-        $this->call($this->seederClasses());
-        Audit::info('The package seeder classes have been seeded.');
-
-        // call development/test fixture seeders
-        if (SeedProfile::includesDevelopmentData()) {
-            $this->call($this->testingSeederClasses());
-            Audit::debug('The ' . SeedProfile::developmentDataLabel() . ' package seeder classes have been seeded.');
-        }
-    }
-
-    /**
-     * All essential seeders required for a minimal production installation.
-     *
-     * @return array<class-string<Seeder>>
-     */
-    private function seederClasses(): array
-    {
-        return [
-            RepositoriesTableSeeder::class,
-        ];
-    }
-
-    /**
-     * All non-production fixture seeders used by local development and tests.
-     *
-     * @return array<class-string<Seeder>>
-     */
-    private function testingSeederClasses(): array
-    {
-        return [
-            Testing\RepositoriesTableSeeder::class,
-        ];
+        //
     }
 }

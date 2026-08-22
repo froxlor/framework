@@ -49,6 +49,7 @@ class SettingController extends Controller
     {
         return match (Str::lower($category)) {
             'api' => 'blocks',
+            'appearance' => 'paint-bucket',
             'auditlog', 'audit-log' => 'file-clock',
             'mail', 'smtp' => 'mail',
             'security', 'auth', 'authentication' => 'shield',

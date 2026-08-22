@@ -1,4 +1,4 @@
-@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'py-1 bg-zinc-900', 'closeOnContentClick' => true])
+@props(['align' => 'right', 'width' => '48', 'contentClasses' => 'py-1 bg-white dark:bg-zinc-900', 'closeOnContentClick' => true])
 
 @php
     // Determine horizontal alignment and transform origin
@@ -40,7 +40,7 @@
                 @click.stop
             @endif
     >
-        <div class="rounded-md ring-1 ring-black ring-opacity-5 {{ $contentClasses }}">
+        <div class="rounded-md ring-1 ring-black/5 dark:ring-white/10 {{ $contentClasses }}">
             {{ $content }}
         </div>
     </div>

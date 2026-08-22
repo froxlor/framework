@@ -24,14 +24,17 @@ use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Core\Support\PermissionRegistry;
 use Froxlor\Core\Support\ResourceRegistry;
+use Froxlor\Core\Livewire\Actions\Logout;
 use Froxlor\UI\Pushable\SidebarLink;
 use Froxlor\UI\Pushable\SidebarTenantLink;
+use Froxlor\UI\Pushable\UserDropdownLink;
 use Froxlor\UI\Support\UI;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Console\AboutCommand;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Gate;
+use Livewire\Livewire;
 use URL;
 
 class FroxlorCoreServiceProvider extends PackageServiceProvider
@@ -53,6 +56,7 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         // Routes
         $this->loadRoutesFrom(__DIR__ . '/../../routes/api.php');
+        $this->loadRoutesFrom(__DIR__ . '/../../routes/auth.php');
         $this->loadRoutesFrom(__DIR__ . '/../../routes/web.php');
 
         // Views
@@ -70,6 +74,9 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
         // Cli commands
         $this->loadCommandsFrom(__DIR__ . '/../Console');
+
+        // Livewire
+        Livewire::component('froxlor-auth::logout', Logout::class);
 
         // User Interface
         $this->extendUserInterface();
@@ -132,6 +139,12 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
                 ->route(fn() => route('overview'))
                 ->active(fn() => request()->routeIs('overview'))
                 ->icon('house'),
+        ]);
+
+        UI::push('user', items: [
+            UserDropdownLink::make('logout', 9)
+                ->label(trans('froxlor-core::generic.logout'))
+                ->route(fn() => route('logout')),
         ]);
 
         UI::push('sidebar-footer', items: [

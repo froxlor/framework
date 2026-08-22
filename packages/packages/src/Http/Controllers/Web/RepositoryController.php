@@ -2,8 +2,8 @@
 
 namespace Froxlor\Packages\Http\Controllers\Web;
 
+use Exception;
 use Froxlor\Packages\Http\Controllers\Controller;
-use Froxlor\Packages\Models\Repository;
 use Froxlor\Packages\Resources\RepositoryResource;
 use Froxlor\Packages\Services\PackageService;
 use Froxlor\UI\Support\UI;
@@ -21,33 +21,30 @@ class RepositoryController extends Controller
         return UI::render(RepositoryResource::class, 'create');
     }
 
-    public function edit(Repository $repository)
+    public function edit(string $repository)
     {
         return UI::render(RepositoryResource::class, 'edit', [
-            'repository' => $repository
+            'repository' => $repository,
         ]);
-    }
-
-    public function update(PackageService $packageService)
-    {
-        $response = $packageService->updateRepositories();
-
-        return back()->with('message', [$response['status'], $response['message']]);
     }
 
     public function switch(Request $request, PackageService $packageService)
     {
         $response = match($request->type) {
             'stable' => $packageService->changeToDefaultRepository(),
-            'developer' => $packageService->changeToLocalRepository(),
+            'developer' => $packageService->loadPackageRepository(),
         };
 
         return back()->with('message', [$response['status'], $response['message']]);
     }
 
-    public function destroy(Repository $repository)
+    public function destroy(string $repository, PackageService $packageService)
     {
-        $repository->delete();
+        try {
+            $packageService->removeRepository(str_replace(':', '/', $repository));
+        } catch (Exception $e) {
+            return back()->with('message', ['error', $e->getMessage()]);
+        }
 
         return back()->with('message', ['success', trans('froxlor-packages::generic.repository_deleted_successfully')]);
     }

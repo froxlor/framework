@@ -2,7 +2,6 @@
 
 namespace Froxlor\Packages\Resources;
 
-use Froxlor\Packages\Models\Repository;
 use Froxlor\UI\Forms;
 use Froxlor\UI\Resources\Resource;
 use Froxlor\UI\Schemas;
@@ -24,12 +23,6 @@ class RepositoryResource extends Resource
                     ->label(trans('froxlor-core::generic.name'))
                     ->sortable(),
 
-                Tables\Columns\IconColumn::make('enabled')
-                    ->label(trans('froxlor-core::generic.enabled'))
-                    ->trueIcon('circle-check')
-                    ->falseIcon('circle-x')
-                    ->sortable(),
-
                 Tables\Columns\TextColumn::make('type')
                     ->label(trans('froxlor-core::generic.type'))
                     ->sortable(),
@@ -49,7 +42,7 @@ class RepositoryResource extends Resource
                 Tables\ColumnActions\Action::make('destroy')
                     ->label(trans('froxlor-packages::generic.delete'))
                     ->intendedRoute('packages.repositories.destroy', ['repository' => '{id}'])
-                    ->visible(fn ($row) => !($row['enabled'] || $row['protected']))
+                    ->visible(fn ($row) => !$row['protected'])
                     ->variant('danger')
                     ->icon('trash')
                     ->method('DELETE'),
@@ -67,13 +60,6 @@ class RepositoryResource extends Resource
                     ->href(route('packages.repositories.switch', ['type' => 'developer']))
                     ->variant('secondary')
                     ->icon('bug')
-                    ->method('post'),
-
-                Tables\Actions\Action::make('update')
-                    ->label(trans('froxlor-packages::generic.update_repositories'))
-                    ->href(route('packages.repositories.update'))
-                    ->variant('secondary')
-                    ->icon('refresh-cw')
                     ->method('post'),
 
                 Tables\Actions\Action::make('create')
@@ -111,10 +97,6 @@ class RepositoryResource extends Resource
                         Forms\Components\TextInput::make('url')
                             ->label(trans('froxlor-core::generic.url'))
                             ->required(),
-
-                        Forms\Components\Boolean::make('enabled')
-                            ->label(trans('froxlor-core::generic.enabled'))
-                            ->toggle(),
                     ]),
             ])
             ->actions([
@@ -124,7 +106,7 @@ class RepositoryResource extends Resource
             ]);
     }
 
-    public function edit(Repository $repository): Schema
+    public function edit(string $repository): Schema
     {
         return $this->create()
             ->title(trans('froxlor-core::generic.edit') . ' ' . trans('froxlor-packages::generic.repository'))

@@ -20,65 +20,60 @@ class PackageResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')
                     ->label(trans('froxlor-core::generic.name'))
+                    ->description(fn ($row) => $row['description'] ?? null)
+                    ->description(fn ($row) => self::authorAndWebsiteLine($row), html: true)
                     ->sortable(),
 
                 Tables\Columns\TextColumn::make('version')
                     ->label(trans('froxlor-core::generic.version'))
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('description')
-                    ->label(trans('froxlor-core::generic.description'))
-                    ->sortable(),
+                Tables\Columns\IconColumn::make('enabled')
+                    ->label(trans('froxlor-core::generic.enabled'))
+                    ->trueIcon('circle-check')
+                    ->falseIcon('circle-x')
+                    ->trueVariant('primary')
+                    ->falseVariant('secondary')
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('authors')
-                    ->label(trans('froxlor-core::generic.authors'))
-                    ->formatValue(function ($value) {
-                        if (!is_array($value)) {
-                            return $value ?? '';
-                        }
+                Tables\Columns\IconColumn::make('disabled')
+                    ->label(trans('froxlor-packages::generic.safe_mode'))
+                    ->trueIcon('shield-alert')
+                    ->falseIcon('shield-check')
+                    ->trueVariant('danger')
+                    ->falseVariant('primary')
+                    ->toggleable(isHiddenByDefault: true),
 
-                        return implode(', ', array_filter(array_map(function ($author) {
-                            if (!is_array($author) || !isset($author['name'])) {
-                                return null;
-                            }
+                Tables\Columns\TextColumn::make('disabled_reason')
+                    ->label(trans('froxlor-packages::generic.reason'))
+                    ->formatValue(fn ($value) => $value ?? '')
+                    ->toggleable(isHiddenByDefault: true),
 
-                            return $author['name'];
-                        }, $value)));
-                    })
-                    ->sortable(),
+                Tables\Columns\TextColumn::make('pending_reason')
+                    ->label(trans('froxlor-packages::generic.needs_input'))
+                    ->formatValue(fn ($value) => $value ?? '')
+                    ->toggleable(isHiddenByDefault: true),
 
                 Tables\Columns\TextColumn::make('license')
                     ->label(trans('froxlor-core::generic.license'))
                     ->formatValue(fn ($value) => is_array($value) ? implode(', ', $value) : ($value ?? trans('froxlor-core::generic.none')))
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('dependant')
+                Tables\Columns\TooltipColumn::make('dependant')
                     ->label(trans('froxlor-core::generic.dependant'))
-                    ->formatValue(fn ($value) => is_array($value)
-                        ? implode('<br>', array_is_list($value)
-                            ? $value
-                            : array_map(
-                                fn ($version, $package) => $package . ':' . $version,
-                                $value,
-                                array_keys($value)
-                            ))
-                        : ($value ?? trans('froxlor-core::generic.none')))
-                    ->html()
-                    ->sortable(),
+                    ->formatValue(fn ($value) => self::dependencyCountLabel($value))
+                    ->tooltip(fn ($value) => self::dependencyTooltip($value))
+                    ->sortable()
+                    ->toggleable(),
 
-                Tables\Columns\TextColumn::make('depends')
+                Tables\Columns\TooltipColumn::make('depends')
                     ->label(trans('froxlor-core::generic.depends'))
-                    ->formatValue(fn ($value) => is_array($value)
-                        ? implode('<br>', array_is_list($value)
-                            ? $value
-                            : array_map(
-                                fn ($version, $package) => $package . ':' . $version,
-                                $value,
-                                array_keys($value)
-                            ))
-                        : ($value ?? trans('froxlor-core::generic.none')))
-                    ->html()
-                    ->sortable(),
+                    ->formatValue(fn ($value) => self::dependencyCountLabel($value))
+                    ->tooltip(fn ($value) => self::dependencyTooltip($value))
+                    ->sortable()
+                    ->toggleable(),
             ])
             ->columnActions([
                 Tables\ColumnActions\Action::make('install')
@@ -89,10 +84,42 @@ class PackageResource extends Resource
                     ->method('post')
                     ->icon('plus'),
 
+                Tables\ColumnActions\Action::make('enable')
+                    ->label(trans('froxlor-packages::generic.re_enable'))
+                    ->intendedRoute('packages.safe-mode.enable', ['package' => '{id}'])
+                    ->visible(fn ($row) => (bool)($row['disabled'] ?? false))
+                    ->variant('primary')
+                    ->icon('shield-check')
+                    ->method('post'),
+
+                Tables\ColumnActions\Action::make('activate')
+                    ->label(trans('froxlor-core::generic.enable'))
+                    ->intendedRoute('packages.enable', ['package' => '{id}'])
+                    ->visible(fn ($row) => (bool)($row['toggleable'] ?? false) && !($row['enabled'] ?? true))
+                    ->variant('primary')
+                    ->icon('circle-check')
+                    ->method('post'),
+
+                Tables\ColumnActions\Action::make('deactivate')
+                    ->label(trans('froxlor-core::generic.disable'))
+                    ->intendedRoute('packages.disable', ['package' => '{id}'])
+                    ->visible(fn ($row) => (bool)($row['toggleable'] ?? false) && (bool)($row['enabled'] ?? true))
+                    ->variant('secondary')
+                    ->icon('circle-x')
+                    ->method('post'),
+
+                Tables\ColumnActions\Action::make('complete')
+                    ->label(trans('froxlor-packages::generic.complete'))
+                    ->intendedRoute('packages.complete', ['package' => '{id}'])
+                    ->visible(fn ($row) => !empty($row['pending_route']))
+                    ->variant('primary')
+                    ->icon('circle-alert'),
+
                 Tables\ColumnActions\Action::make('uninstall')
                     ->label(trans('froxlor-packages::generic.uninstall'))
                     ->intendedRoute('packages.uninstall', ['package' => '{id}'])
                     ->visible(fn ($row) => (bool)($row['installed'] ?? false))
+                    ->disabled(fn ($row) => (bool)($row['has_dependants'] ?? false))
                     ->variant('danger')
                     ->icon('trash'),
             ])
@@ -191,5 +218,76 @@ class PackageResource extends Resource
                     ->label(trans('froxlor-core::generic.back'))
                     ->href(route('packages.index')),
             ]);
+    }
+
+    /**
+     * Normalizes a depends/dependant value (either a plain list of package names, or a
+     * package => version-constraint map) into a flat list of "package:version" strings.
+     */
+    private static function dependencyItems(mixed $value): array
+    {
+        if (!is_array($value) || $value === []) {
+            return [];
+        }
+
+        return array_is_list($value)
+            ? $value
+            : array_map(
+                fn ($version, $package) => $package . ':' . $version,
+                $value,
+                array_keys($value)
+            );
+    }
+
+    /**
+     * Compact "N packages" summary shown in the cell, so a long dependency list
+     * doesn't blow out the row height — the full list is shown in the tooltip.
+     */
+    private static function dependencyCountLabel(mixed $value): string
+    {
+        return trans_choice('froxlor-packages::generic.dependency_count', count(self::dependencyItems($value)));
+    }
+
+    /**
+     * Full "package:version" list rendered inside the column's hover tooltip.
+     */
+    private static function dependencyTooltip(mixed $value): ?string
+    {
+        $items = self::dependencyItems($value);
+
+        return $items !== [] ? implode('<br>', array_map('e', $items)) : null;
+    }
+
+    /**
+     * Renders "by <authors>, <website>" for the small description line under a package's
+     * name, linking each author to their homepage when composer.json provides one.
+     */
+    private static function authorAndWebsiteLine(array $row): ?string
+    {
+        $authors = is_array($row['authors'] ?? null) ? $row['authors'] : [];
+
+        $authorNames = array_values(array_filter(array_map(function ($author) {
+            if (!is_array($author) || empty($author['name'])) {
+                return null;
+            }
+
+            $name = e($author['name']);
+
+            return !empty($author['homepage'])
+                ? '<a href="' . e($author['homepage']) . '" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">' . $name . '</a>'
+                : $name;
+        }, $authors)));
+
+        $website = $row['homepage'] ?? null;
+        $websiteLink = $website
+            ? '<a href="' . e($website) . '" target="_blank" rel="noopener noreferrer" class="text-primary hover:underline">' . e(preg_replace('#^https?://#i', '', $website)) . '</a>'
+            : null;
+
+        $parts = array_filter([
+            $authorNames !== [] ? implode(', ', $authorNames) : null,
+            $websiteLink,
+        ]);
+
+        return $parts !== [] ? implode(' &middot; ', $parts) : null;
     }
 }

@@ -28,9 +28,13 @@ class PackagesUpdate extends Command
     {
         $this->line('Start updating packages...');
 
-        $packageService->updateRepositories();
         $package = $this->argument('package');
-        $service = $packageService->updatePackage($package);
+
+        // A real terminal here means a hook that needs admin input (e.g. via Laravel Prompts)
+        // can genuinely block and ask for it, instead of only ever falling back to the web UI.
+        $interactive = $this->input->isInteractive() && defined('STDIN') && stream_isatty(STDIN);
+
+        $service = $packageService->updatePackage($package, $interactive);
 
         if ($service['status'] == 'success') {
             $this->info($service['message']);
