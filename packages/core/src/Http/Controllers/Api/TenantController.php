@@ -16,6 +16,7 @@ use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class TenantController extends Controller
 {
@@ -80,7 +81,11 @@ class TenantController extends Controller
     {
         Gate::authorize('view', $tenant);
 
-        return Response::jsonResource($tenant->load('plan')->append('tenant_usage_list'));
+        return Response::jsonResource($tenant->load('plan')->append([
+            'tenant_usage_list',
+            'all_users_count',
+            'all_sub_tenants_count',
+        ]));
     }
 
     /**
@@ -94,6 +99,13 @@ class TenantController extends Controller
         $parentTenant = array_key_exists('parent_tenant_id', $tenantData)
             ? Tenant::query()->find($tenantData['parent_tenant_id'])
             : $tenant->parentTenant;
+
+        if (!$tenant->canHaveParent($parentTenant)) {
+            throw ValidationException::withMessages([
+                'parent_tenant_id' => 'A tenant cannot be assigned to itself or one of its descendants.',
+            ]);
+        }
+
         $plan = array_key_exists('plan_id', $tenantData)
             ? Plan::query()->findOrFail($tenantData['plan_id'])
             : $tenant->plan;
@@ -131,6 +143,12 @@ class TenantController extends Controller
     public function destroy(Tenant $tenant)
     {
         Gate::authorize('delete', $tenant);
+
+        if ($tenant->subTenants()->exists()) {
+            throw ValidationException::withMessages([
+                'tenant' => 'A tenant with child tenants cannot be deleted.',
+            ]);
+        }
 
         $tenant->delete();
         event(new ResourceDeleted($tenant, []));

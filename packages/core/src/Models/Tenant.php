@@ -46,9 +46,7 @@ class Tenant extends Model
 
     public $appends = [
         'users_count',
-        'all_users_count',
         'sub_tenants_count',
-        'all_sub_tenants_count',
     ];
 
     public function environments(): HasMany
@@ -146,10 +144,9 @@ class Tenant extends Model
     /**
      * Limit the query to tenants contained in the given tenant tree.
      *
-     * This currently resolves the tree in PHP because tenant trees are expected
-     * to be shallow in normal control-panel usage. The method keeps callers away
-     * from duplicating hierarchy traversal and can later be replaced internally
-     * by a recursive SQL implementation if needed.
+     * This resolves the tree in PHP using a batched breadth-first traversal with
+     * cycle protection. The method keeps callers away from duplicating hierarchy
+     * traversal and can later be replaced internally by recursive SQL if needed.
      */
     public function scopeInTreeOf(Builder $query, Tenant $tenant, bool $includeSelf = true): Builder
     {
@@ -160,19 +157,35 @@ class Tenant extends Model
      * Return all descendants of this tenant in breadth-first order.
      *
      * The returned collection contains children, grandchildren, and deeper
-     * descendants, but never the current tenant itself.
+     * descendants, but never the current tenant itself. Each tree level is
+     * loaded in one query and visited IDs protect against malformed cycles.
      *
      * @return Collection<int, Tenant>
      */
     public function allSubTenants(): Collection
     {
         $all = new Collection();
-        $queue = $this->subTenants()->get();
+        $visited = [$this->id => true];
+        $frontier = [$this->id];
 
-        while ($queue->isNotEmpty()) {
-            $all = $all->merge($queue);
-            $queue = $queue->map->subTenants->flatten();
+        while ($frontier !== []) {
+            $children = static::query()
+                ->whereIn('parent_tenant_id', $frontier)
+                ->orderBy('id')
+                ->get();
+            $frontier = [];
+
+            foreach ($children as $child) {
+                if (isset($visited[$child->id])) {
+                    continue;
+                }
+
+                $visited[$child->id] = true;
+                $all->push($child);
+                $frontier[] = $child->id;
+            }
         }
+
         return $all;
     }
 
@@ -208,6 +221,22 @@ class Tenant extends Model
     public function parentTenant(): BelongsTo
     {
         return $this->belongsTo(Tenant::class, 'parent_tenant_id', 'id');
+    }
+
+    /**
+     * Determine whether the given tenant can become this tenant's parent.
+     *
+     * A tenant cannot be assigned to itself or to one of its descendants,
+     * otherwise the adjacency-list tree would contain a cycle.
+     */
+    public function canHaveParent(?Tenant $parentTenant): bool
+    {
+        if ($parentTenant === null || !$this->exists) {
+            return true;
+        }
+
+        return $this->id !== $parentTenant->id
+            && !$this->isAncestorOf($parentTenant);
     }
 
     /**
