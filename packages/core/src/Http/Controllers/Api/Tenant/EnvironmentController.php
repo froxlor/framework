@@ -12,6 +12,7 @@ use Froxlor\Core\Jobs\Environment\CreateEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -50,6 +51,9 @@ class EnvironmentController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($env, $eventData));
+        Audit::notice('environment "' . $env->name . '" created', $tenant, $env, [
+            'plan_id' => $env->plan_id,
+        ]);
         // connect to node and create environment if given
         if (!empty($node_id)) {
             $node = $this->nodeForTenant($node_id, $tenant);
@@ -85,6 +89,9 @@ class EnvironmentController extends Controller
 
         $environment->update($envData);
         event(new ResourceUpdated($environment, $this->validatedEventData($request)));
+        Audit::info('environment "' . $environment->name . '" updated', $tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
 
         if (!empty($nodeId)) {
             $node = $this->nodeForTenant($nodeId, $tenant);
@@ -103,6 +110,9 @@ class EnvironmentController extends Controller
 
         $environment->delete();
         event(new ResourceDeleted($environment, []));
+        Audit::info('environment "' . $environment->name . '" deleted', $tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
 
         return response()->noContent();
     }

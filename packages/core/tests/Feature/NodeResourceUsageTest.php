@@ -149,7 +149,7 @@ class NodeResourceUsageTest extends TestCase
 
         $this->actingAs($user, 'sanctum');
 
-        $node = $this->createTenantNode($tenant, 'Audited Node');
+        $node = $this->createTenantNodeThroughApi($tenant, 'Audited Node');
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -158,7 +158,10 @@ class NodeResourceUsageTest extends TestCase
             'action' => 'node "' . $node->name . '" created',
         ]);
 
-        $node->update(['name' => 'Audited Node Updated']);
+        $this->putJson('/api/tenants/' . $tenant->id . '/nodes/' . $node->id, [
+            'name' => 'Audited Node Updated',
+        ])->assertOk();
+        $node->refresh();
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -168,7 +171,8 @@ class NodeResourceUsageTest extends TestCase
         ]);
 
         $nodeId = $node->id;
-        $node->delete();
+        $this->deleteJson('/api/tenants/' . $tenant->id . '/nodes/' . $node->id)
+            ->assertNoContent();
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -195,5 +199,20 @@ class NodeResourceUsageTest extends TestCase
             'username' => 'root',
             'sudo' => true,
         ]);
+    }
+
+    private function createTenantNodeThroughApi(Tenant $tenant, string $name): Node
+    {
+        $nodeId = $this->postJson('/api/tenants/' . $tenant->id . '/nodes', [
+            'adapter' => FakeNodeAdapter::class,
+            'name' => $name,
+            'hostname' => str($name)->slug() . '.local',
+            'username' => 'root',
+            'sudo' => true,
+        ])
+            ->assertCreated()
+            ->json('data.id');
+
+        return Node::query()->findOrFail($nodeId);
     }
 }

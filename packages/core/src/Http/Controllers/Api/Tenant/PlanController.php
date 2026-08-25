@@ -10,6 +10,7 @@ use Froxlor\Core\Http\Requests\StorePlanRequest;
 use Froxlor\Core\Http\Requests\UpdatePlanRequest;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -46,6 +47,9 @@ class PlanController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($plan, $eventData));
+        Audit::notice('plan "' . $plan->name . '" created', $tenant, context: [
+            'plan_id' => $plan->id,
+        ]);
 
         // return resource
         return Response::jsonResource($plan->refresh());
@@ -78,6 +82,9 @@ class PlanController extends Controller
 
         $plan->update($request->validated());
         event(new ResourceUpdated($plan, $this->validatedEventData($request)));
+        Audit::info('plan "' . $plan->name . '" updated', $tenant, context: [
+            'plan_id' => $plan->id,
+        ]);
 
         return Response::jsonResource($plan->refresh());
     }
@@ -92,6 +99,9 @@ class PlanController extends Controller
 
         $plan->delete();
         event(new ResourceDeleted($plan, []));
+        Audit::info('plan "' . $plan->name . '" deleted', $tenant, context: [
+            'plan_id' => $plan->id,
+        ]);
 
         return response()->noContent();
     }

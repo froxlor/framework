@@ -12,6 +12,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
@@ -70,6 +71,9 @@ class UserController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($user, $eventData));
+        Audit::notice('user "' . $user->email . '" created', $targetTenant, context: [
+            'user_id' => $user->id,
+        ]);
 
         // return resource
         return Response::jsonResource($user->refresh());
@@ -110,6 +114,7 @@ class UserController extends Controller
 
         $userData = $request->validated();
         $tenantId = $this->getNonModelRequestData('tenant_id', $userData);
+        $targetTenant = null;
         $roleId = $this->getNonModelRequestData('role_id', $userData)
             ?? $this->getNonModelRequestData('role', $userData);
         $planProvided = $request->has('plan');
@@ -147,6 +152,9 @@ class UserController extends Controller
         }
 
         event(new ResourceUpdated($user, $this->validatedEventData($request)));
+        Audit::info('user "' . $user->email . '" updated', $targetTenant ?? $user->tenants()->first(), context: [
+            'user_id' => $user->id,
+        ]);
 
         return Response::jsonResource($user);
     }
@@ -158,8 +166,12 @@ class UserController extends Controller
     {
         Gate::authorize('delete', $user);
 
+        $tenant = $user->tenants()->first();
         $user->delete();
         event(new ResourceDeleted($user, []));
+        Audit::info('user "' . $user->email . '" deleted', $tenant, context: [
+            'user_id' => $user->id,
+        ]);
 
         return response()->noContent();
     }

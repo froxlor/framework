@@ -12,6 +12,7 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\PlanAssignments;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -69,6 +70,10 @@ class TenantController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($tenant, $eventData));
+        Audit::notice('tenant "' . $tenant->name . '" created', $parentTenant, context: [
+            'tenant_id' => $tenant->id,
+            'plan_id' => $tenant->plan_id,
+        ]);
 
         // return resource
         return Response::jsonResource($tenant->refresh());
@@ -133,8 +138,13 @@ class TenantController extends Controller
 
         });
         event(new ResourceUpdated($tenant, $this->validatedEventData($request)));
+        $tenant->refresh();
+        Audit::info('tenant "' . $tenant->name . '" updated', $tenant->parentTenant, context: [
+            'tenant_id' => $tenant->id,
+            'plan_id' => $tenant->plan_id,
+        ]);
 
-        return Response::jsonResource($tenant->refresh());
+        return Response::jsonResource($tenant);
     }
 
     /**
@@ -150,8 +160,12 @@ class TenantController extends Controller
             ]);
         }
 
+        $parentTenant = $tenant->parentTenant;
         $tenant->delete();
         event(new ResourceDeleted($tenant, []));
+        Audit::info('tenant "' . $tenant->name . '" deleted', $parentTenant, context: [
+            'tenant_id' => $tenant->id,
+        ]);
 
         return response()->noContent();
     }

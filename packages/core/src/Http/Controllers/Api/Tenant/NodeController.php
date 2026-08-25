@@ -12,6 +12,7 @@ use Froxlor\Core\Http\Requests\UpdateNodeRequest;
 use Froxlor\Core\Jobs\Node\ExploreNode;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Support\Facades\Gate;
 
@@ -52,6 +53,9 @@ class NodeController extends Controller
         ]);
 
         event(new ResourceCreated($node, $this->validatedEventData($request)));
+        Audit::notice('node "' . $node->name . '" created', $tenant, context: [
+            'node_id' => $node->id,
+        ]);
 
         dispatch(new ExploreNode($node, true));
 
@@ -77,6 +81,9 @@ class NodeController extends Controller
 
         $node->update($this->normalizeNodeProperties($request->validated(), $node));
         event(new ResourceUpdated($node, $this->validatedEventData($request)));
+        Audit::info('node "' . $node->name . '" updated', $tenant, context: [
+            'node_id' => $node->id,
+        ]);
 
         return Response::jsonResource($node->refresh());
     }
@@ -90,6 +97,9 @@ class NodeController extends Controller
 
         $node->delete();
         event(new ResourceDeleted($node, []));
+        Audit::info('node "' . $node->name . '" deleted', $tenant, context: [
+            'node_id' => $node->id,
+        ]);
 
         return response()->noContent();
     }

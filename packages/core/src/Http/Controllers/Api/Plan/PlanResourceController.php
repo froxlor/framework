@@ -65,7 +65,7 @@ class PlanResourceController extends Controller
         $resource = Resource::query()->findOrFail($data['resource_id']);
         PlanAssignments::updatePlanResourceLimit($plan, $resource, (int)$data['limit']);
 
-        Audit::info('resource "' . $resource->key . '" assigned to plan "' . $plan->name . '"', $plan->tenant, context: [
+        Audit::notice('resource "' . $resource->key . '" assigned to plan "' . $plan->name . '"', $plan->tenant, context: [
             'plan_id' => $plan->id,
             'resource_id' => $resource->id,
             'resource_key' => $resource->key,

@@ -11,7 +11,6 @@ use Froxlor\Core\Jobs\Environment\DeleteEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\TenantUsage;
 use Froxlor\Core\Models\Tenant;
-use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Resource;
 use Throwable;
 
@@ -72,9 +71,6 @@ class EnvironmentObserver
             Resource::addUsage($environment->tenant, $environment, auth()->user());
         }
 
-        Audit::notice('environment "' . $environment->name . '" created', $environment->tenant, $environment, [
-            'plan_id' => $environment->plan_id,
-        ]);
     }
 
     /**
@@ -82,9 +78,6 @@ class EnvironmentObserver
      */
     public function updated(Environment $environment): void
     {
-        Audit::info('environment "' . $environment->name . '" updated', $environment->tenant, $environment, [
-            'plan_id' => $environment->plan_id,
-        ]);
     }
 
     /**
@@ -110,8 +103,5 @@ class EnvironmentObserver
             ->where('resource_id', $environment->id)
             ->delete();
 
-        Audit::info('environment "' . $environment->name . '" deleted', $environment->tenant, $environment, [
-            'plan_id' => $environment->plan_id,
-        ]);
     }
 }

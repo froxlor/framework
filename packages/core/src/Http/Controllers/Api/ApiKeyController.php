@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\StoreApiKeyRequest;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Laravel\Sanctum\PersonalAccessToken;
@@ -57,6 +58,11 @@ class ApiKeyController extends Controller
 
         $token->setAttribute('plain_text_token', $newToken->plainTextToken);
 
+        Audit::notice('api key "' . $token->name . '" created', $user->tenants()->first(), context: [
+            'api_key_id' => $token->id,
+            'user_id' => $user->id,
+        ]);
+
         return Response::jsonResource($token);
     }
 
@@ -69,7 +75,18 @@ class ApiKeyController extends Controller
 
     public function destroy(PersonalAccessToken $apiKey)
     {
+        $apiKey->loadMissing('tokenable');
+        $user = $apiKey->tokenable instanceof User ? $apiKey->tokenable : null;
+        $tenant = $user?->tenants()->first();
+        $apiKeyId = $apiKey->id;
+        $apiKeyName = $apiKey->name;
+
         $apiKey->delete();
+
+        Audit::info('api key "' . $apiKeyName . '" deleted', $tenant, context: [
+            'api_key_id' => $apiKeyId,
+            'user_id' => $user?->id,
+        ]);
 
         return response()->noContent();
     }

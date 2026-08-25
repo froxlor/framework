@@ -11,6 +11,7 @@ use Froxlor\Core\Http\Requests\UpdateRoleRequest;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\Response;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\RoleAssignments;
 use Illuminate\Support\Facades\Gate;
 
@@ -51,6 +52,9 @@ class RoleController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($role, $eventData));
+        Audit::notice('role "' . $role->name . '" created', $role->tenant, context: [
+            'role_id' => $role->id,
+        ]);
 
         // return resource
         return Response::jsonResource($role->refresh());
@@ -75,6 +79,9 @@ class RoleController extends Controller
 
         $role->update($request->validated());
         event(new ResourceUpdated($role, $this->validatedEventData($request)));
+        Audit::info('role "' . $role->name . '" updated', $role->tenant, context: [
+            'role_id' => $role->id,
+        ]);
 
         return Response::jsonResource($role->refresh());
     }
@@ -89,6 +96,9 @@ class RoleController extends Controller
 
         $role->delete();
         event(new ResourceDeleted($role, []));
+        Audit::info('role "' . $role->name . '" deleted', $role->tenant, context: [
+            'role_id' => $role->id,
+        ]);
 
         return response()->noContent();
     }

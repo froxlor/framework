@@ -135,6 +135,9 @@ class UserController extends Controller
         }
 
         event(new ResourceUpdated($user, $this->validatedEventData($request)));
+        Audit::info('user "' . $user->email . '" updated', $tenant, $environment, context: [
+            'user_id' => $user->id,
+        ]);
 
         return Response::jsonResource($user->refresh());
     }
@@ -148,6 +151,9 @@ class UserController extends Controller
 
         $environment->users()->detach($user);
         event(new ResourceDeleted($user, []));
+        Audit::info('user "' . $user->email . '" removed', $tenant, $environment, context: [
+            'user_id' => $user->id,
+        ]);
 
         return response()->noContent();
     }
