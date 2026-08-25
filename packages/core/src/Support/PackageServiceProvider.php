@@ -132,7 +132,7 @@ abstract class PackageServiceProvider extends ServiceProvider
             'reason' => $reason,
             'route' => $route,
             'stage' => $stage,
-        ]);
+        ], source: $this->packageName());
     }
 
     /**
@@ -147,7 +147,7 @@ abstract class PackageServiceProvider extends ServiceProvider
 
         // The settings table's value column is NOT NULL, so an empty array is the "cleared"
         // sentinel rather than null.
-        Setting::set($this->pendingCompletionSettingPath(), []);
+        Setting::set($this->pendingCompletionSettingPath(), [], source: $this->packageName());
 
         if ($pending === null) {
             return;
@@ -185,7 +185,7 @@ abstract class PackageServiceProvider extends ServiceProvider
         }
 
         $this->enabling();
-        Setting::set($this->enabledSettingPath(), true, 'boolean', true);
+        Setting::set($this->enabledSettingPath(), true, 'boolean', true, $this->packageName());
         $this->enabled();
 
         Audit::info(sprintf('Package %s has been enabled.', $this->packageName()));
@@ -198,7 +198,7 @@ abstract class PackageServiceProvider extends ServiceProvider
         }
 
         $this->disabling();
-        Setting::set($this->enabledSettingPath(), false, 'boolean', true);
+        Setting::set($this->enabledSettingPath(), false, 'boolean', true, $this->packageName());
         $this->disabled();
 
         Audit::info(sprintf('Package %s has been disabled.', $this->packageName()));

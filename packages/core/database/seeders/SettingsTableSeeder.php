@@ -27,7 +27,7 @@ class SettingsTableSeeder extends Seeder
     public function run(): void
     {
         foreach ($this->settings as $setting) {
-            Setting::addFromArray($setting);
+            Setting::addFromArray($setting, source: 'froxlor/core');
         }
     }
 }

@@ -2,7 +2,9 @@
 
 namespace Froxlor\Packages\Support;
 
+use Froxlor\Core\Support\ComposerPackage;
 use Froxlor\Core\Support\Setting;
+use RuntimeException;
 
 /**
  * Credentials used to authenticate against packages.froxlor.org — for now only to raise the
@@ -31,7 +33,10 @@ class MarketplaceCredentials
 
     public static function save(?string $username, ?string $token): void
     {
-        Setting::set('packages.marketplace_username', $username ?: self::DEFAULT_USERNAME);
-        Setting::set('packages.marketplace_token', $token);
+        $source = ComposerPackage::forClass(self::class)
+            ?? throw new RuntimeException('Unable to resolve the composer package for ' . self::class);
+
+        Setting::set('packages.marketplace_username', $username ?: self::DEFAULT_USERNAME, source: $source);
+        Setting::set('packages.marketplace_token', $token, source: $source);
     }
 }

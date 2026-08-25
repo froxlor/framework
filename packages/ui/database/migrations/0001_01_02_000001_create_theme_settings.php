@@ -85,6 +85,7 @@ return new class extends Migration {
                 ],
                 'sort' => 10,
             ],
+            source: 'froxlor/ui',
         );
 
         $this->addColors(self::BASE_COLORS, 'colors.base', 'base_colors', 100);
@@ -116,6 +117,7 @@ return new class extends Migration {
                     'sort' => $sort++,
                     'shades' => $name === 'color-primary' ? self::PRIMARY_SHADES : null,
                 ]),
+                source: 'froxlor/ui',
             );
         }
     }

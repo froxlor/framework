@@ -40,7 +40,7 @@ class BootstrapService
         $user->roles()->attach($superAdminRoleId);
 
         // mark application as initialized
-        Setting::add('core.initialized', true, type: 'boolean', properties: ['visible' => false]);
+        Setting::add('core.initialized', true, type: 'boolean', properties: ['visible' => false], source: 'froxlor/core');
 
         return $user;
     }
