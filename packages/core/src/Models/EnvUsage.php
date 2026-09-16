@@ -46,7 +46,7 @@ class EnvUsage extends Pivot
             abort(404, 'Given resource-type could not be found');
         }
         return Attribute::make(
-            get: fn() => $resource_fqcn::query()->find($this->resource_id)->first(),
+            get: fn() => $resource_fqcn::query()->find($this->resource_id),
         );
     }
 }

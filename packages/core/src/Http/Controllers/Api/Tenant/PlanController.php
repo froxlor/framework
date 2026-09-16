@@ -62,11 +62,10 @@ class PlanController extends Controller
     {
         Gate::authorize('tenantView', [$plan, $tenant]);
 
-        $resourceUsages = $tenant->tenantUsageList;
         $plan->load('resources');
 
-        $plan = $plan->resources->map(function ($resource) use ($resourceUsages) {
-            $resource->used = $resourceUsages[$resource->key] ?? 0;
+        $plan = $plan->resources->map(function ($resource) use ($tenant) {
+            $resource->used = \Froxlor\Core\Support\Quota::tenantUsed($tenant->id, $resource->key, $resource->type);
             return $resource;
         });
 

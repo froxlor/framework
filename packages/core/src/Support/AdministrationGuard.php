@@ -22,6 +22,10 @@ final class AdministrationGuard
                 throw ValidationException::withMessages(['administration' => 'The global administration permission is missing. Restore the permission registry first.']);
             }
 
+            // Acquire quota before tenant/user rows: guarded membership mutations
+            // may book or release quota and must not invert that lock ordering.
+            Quota::lock();
+
             $before = self::administrators($permission->id);
             $roots = self::administeredRoots($before);
             $result = $mutation();

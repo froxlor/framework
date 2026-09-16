@@ -39,45 +39,47 @@ class UserController extends Controller
      */
     public function store(StoreUserRequest $request)
     {
-        Gate::authorize('create', User::class);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request) {
+            Gate::authorize('create', User::class);
 
-        // get validated data only for ourselves
-        $userData = $request->validatedResource();
-        // fixed values
-        if (empty($userData['tenant_id'])) {
-            $targetTenant = $request->user()?->tenants()?->first();
-        } else {
-            // validate that selected tenant can be used
-            $targetTenant = Tenant::query()->where('id', $userData['tenant_id'])->first();
-            if (!$targetTenant->exists()) {
-                return $this->errorResponse('No target tenant found for user assignment.', 404);
+            // get validated data only for ourselves
+            $userData = $request->validatedResource();
+            // fixed values
+            if (empty($userData['tenant_id'])) {
+                $targetTenant = $request->user()?->tenants()?->first();
+            } else {
+                // validate that selected tenant can be used
+                $targetTenant = Tenant::query()->where('id', $userData['tenant_id'])->first();
+                if (!$targetTenant->exists()) {
+                    return $this->errorResponse('No target tenant found for user assignment.', 404);
+                }
             }
-        }
-        if (!$targetTenant) {
-            return $this->errorResponse('No target tenant found for user assignment.', 422);
-        }
-        $this->getNonModelRequestData('tenant_id', $userData);
-        $role = $this->getNonModelRequestData('role_id', $userData)
-            ?? $this->getNonModelRequestData('role', $userData);
-        $plan = $this->getNonModelRequestData('plan_id', $userData)
-            ?? $this->getNonModelRequestData('plan', $userData);
+            if (!$targetTenant) {
+                return $this->errorResponse('No target tenant found for user assignment.', 422);
+            }
+            $this->getNonModelRequestData('tenant_id', $userData);
+            $role = $this->getNonModelRequestData('role_id', $userData)
+                ?? $this->getNonModelRequestData('role', $userData);
+            $plan = $this->getNonModelRequestData('plan_id', $userData)
+                ?? $this->getNonModelRequestData('plan', $userData);
 
-        RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $targetTenant);
-        PlanAssignments::ensureAssignableToTenantUser($plan, $targetTenant);
+            RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $targetTenant);
+            PlanAssignments::ensureAssignableToTenantUser($plan, $targetTenant);
 
-        // create resource
-        $user = User::query()->create($userData);
-        $targetTenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
-        // build up validated data for others
-        $eventData = $this->validatedEventData($request);
-        // throw event that resource was created and append validated data
-        event(new ResourceCreated($user, $eventData));
-        Audit::notice('user "' . $user->email . '" created', $targetTenant, context: [
-            'user_id' => $user->id,
-        ]);
+            // create resource
+            $user = User::query()->create($userData);
+            $targetTenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
+            // build up validated data for others
+            $eventData = $this->validatedEventData($request);
+            // throw event that resource was created and append validated data
+            event(new ResourceCreated($user, $eventData));
+            Audit::notice('user "' . $user->email . '" created', $targetTenant, context: [
+                'user_id' => $user->id,
+            ]);
 
-        // return resource
-        return Response::jsonResource($user->refresh());
+            // return resource
+            return Response::jsonResource($user->refresh());
+        });
     }
 
     /**
@@ -111,53 +113,55 @@ class UserController extends Controller
      */
     public function update(UpdateUserRequest $request, User $user)
     {
-        Gate::authorize('update', $user);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $user) {
+            Gate::authorize('update', $user);
 
-        $userData = $request->validated();
-        $tenantId = $this->getNonModelRequestData('tenant_id', $userData);
-        $targetTenant = null;
-        $roleId = $this->getNonModelRequestData('role_id', $userData)
-            ?? $this->getNonModelRequestData('role', $userData);
-        $planProvided = $request->has('plan');
-        if ($request->has('plan_id')) {
-            $planProvided = true;
-        }
-        $planId = $this->getNonModelRequestData('plan_id', $userData)
-            ?? $this->getNonModelRequestData('plan', $userData);
-
-        if ($tenantId) {
-            $targetTenant = Tenant::query()->findOrFail($tenantId);
-            if ($roleId) {
-                RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $targetTenant);
+            $userData = $request->validated();
+            $tenantId = $this->getNonModelRequestData('tenant_id', $userData);
+            $targetTenant = null;
+            $roleId = $this->getNonModelRequestData('role_id', $userData)
+                ?? $this->getNonModelRequestData('role', $userData);
+            $planProvided = $request->has('plan');
+            if ($request->has('plan_id')) {
+                $planProvided = true;
             }
-            if ($planProvided) {
-                PlanAssignments::ensureAssignableToTenantUser($planId, $targetTenant, 'plan_id', $user->id);
-            }
-        }
+            $planId = $this->getNonModelRequestData('plan_id', $userData)
+                ?? $this->getNonModelRequestData('plan', $userData);
 
-        $user->update($userData);
-
-        if ($tenantId) {
-            $pivotData = [];
-            if (!empty($roleId)) {
-                $pivotData['role_id'] = $roleId;
+            if ($tenantId) {
+                $targetTenant = Tenant::query()->findOrFail($tenantId);
+                if ($roleId) {
+                    RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $targetTenant);
+                }
+                if ($planProvided) {
+                    PlanAssignments::ensureAssignableToTenantUser($planId, $targetTenant, 'plan_id', $user->id);
+                }
             }
-            if ($planProvided) {
-                $pivotData['plan_id'] = $planId;
-            }
-            if ($pivotData !== []) {
-                $user->tenants()->syncWithoutDetaching([
-                    $tenantId => $pivotData,
-                ]);
-            }
-        }
 
-        event(new ResourceUpdated($user, $this->validatedEventData($request)));
-        Audit::info('user "' . $user->email . '" updated', $targetTenant ?? $user->tenants()->first(), context: [
-            'user_id' => $user->id,
-        ]);
+            $user->update($userData);
 
-        return Response::jsonResource($user);
+            if ($tenantId) {
+                $pivotData = [];
+                if (!empty($roleId)) {
+                    $pivotData['role_id'] = $roleId;
+                }
+                if ($planProvided) {
+                    $pivotData['plan_id'] = $planId;
+                }
+                if ($pivotData !== []) {
+                    $user->tenants()->syncWithoutDetaching([
+                        $tenantId => $pivotData,
+                    ]);
+                }
+            }
+
+            event(new ResourceUpdated($user, $this->validatedEventData($request)));
+            Audit::info('user "' . $user->email . '" updated', $targetTenant ?? $user->tenants()->first(), context: [
+                'user_id' => $user->id,
+            ]);
+
+            return Response::jsonResource($user);
+        });
     }
 
     /**

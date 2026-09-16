@@ -118,6 +118,16 @@ class TenantController extends Controller
         $oldParentTenant = $tenant->parentTenant;
 
         AdministrationGuard::run(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+            \Froxlor\Core\Support\Quota::lock();
+            $tenant = Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
+            $oldParentTenant = $tenant->parentTenant()->lockForUpdate()->first();
+            $parentTenant = array_key_exists('parent_tenant_id', $tenantData)
+                ? Tenant::query()->whereKey($tenantData['parent_tenant_id'])->lockForUpdate()->first()
+                : $oldParentTenant;
+            $plan = Plan::query()->whereKey($tenantData['plan_id'] ?? $tenant->plan_id)->lockForUpdate()->firstOrFail();
+            if (!$tenant->canHaveParent($parentTenant)) {
+                throw ValidationException::withMessages(['parent_tenant_id' => 'Invalid tenant parent.']);
+            }
             Gate::authorize('update', $tenant);
             if ($oldParentTenant !== null && ($parentTenant === null || $oldParentTenant->id !== $parentTenant->id)) {
                 PlanAssignments::lockTenantBudget($oldParentTenant);
@@ -164,6 +174,7 @@ class TenantController extends Controller
 
         $parentTenant = $tenant->parentTenant;
         AdministrationGuard::run(function () use ($tenant): void {
+            \Froxlor\Core\Support\Quota::lock();
             Gate::authorize('delete', $tenant);
             $tenant->delete();
         });

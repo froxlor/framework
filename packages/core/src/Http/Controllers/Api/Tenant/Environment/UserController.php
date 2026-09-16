@@ -35,37 +35,39 @@ class UserController extends Controller
      */
     public function store(StoreEnvironmentUserRequest $request, Tenant $tenant, Environment $environment)
     {
-        Gate::authorize('tenantEnvCreate', [User::class, $tenant, $environment]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant, $environment) {
+            Gate::authorize('tenantEnvCreate', [User::class, $tenant, $environment]);
 
-        if ($environment->userHasResourceAvailable($request->user(), User::getResourceKey())) {
+            if ($environment->userHasResourceAvailable($request->user(), User::getResourceKey())) {
 
-            // get validated data only for ourselves
-            $userData = $request->validatedResource();
-            $tenant_role = $this->getNonModelRequestData('tenant_role', $userData);
-            $tenant_plan = $this->getNonModelRequestData('tenant_plan', $userData);
-            $env_role = $this->getNonModelRequestData('environment_role', $userData);
-            $env_plan = $this->getNonModelRequestData('environment_plan', $userData);
+                // get validated data only for ourselves
+                $userData = $request->validatedResource();
+                $tenant_role = $this->getNonModelRequestData('tenant_role', $userData);
+                $tenant_plan = $this->getNonModelRequestData('tenant_plan', $userData);
+                $env_role = $this->getNonModelRequestData('environment_role', $userData);
+                $env_plan = $this->getNonModelRequestData('environment_plan', $userData);
 
-            RoleAssignments::ensureAssignable($request->user(), $tenant_role, 'tenant_role', $tenant);
-            RoleAssignments::ensureAssignable($request->user(), $env_role, 'environment_role', $tenant, $environment);
-            PlanAssignments::ensureAssignableToTenantUser($tenant_plan, $tenant, 'tenant_plan');
-            PlanAssignments::ensureAssignableToEnvironmentUser($env_plan, $tenant, $environment);
+                RoleAssignments::ensureAssignable($request->user(), $tenant_role, 'tenant_role', $tenant);
+                RoleAssignments::ensureAssignable($request->user(), $env_role, 'environment_role', $tenant, $environment);
+                PlanAssignments::ensureAssignableToTenantUser($tenant_plan, $tenant, 'tenant_plan');
+                PlanAssignments::ensureAssignableToEnvironmentUser($env_plan, $tenant, $environment);
 
-            // create resource
-            $user = User::query()->create($userData);
-            $tenant->users()->attach($user, ['role_id' => $tenant_role, 'plan_id' => $tenant_plan]);
-            // connect environment
-            $user->environments()->attach($environment, ['role_id' => $env_role, 'plan_id' => $env_plan]);
-            // build up validated data for others
-            $eventData = $this->validatedEventData($request);
-            // throw event that resource was created and append validated data
-            event(new ResourceCreated($user, $eventData));
+                // create resource
+                $user = User::query()->create($userData);
+                $tenant->users()->attach($user, ['role_id' => $tenant_role, 'plan_id' => $tenant_plan]);
+                // connect environment
+                $user->environments()->attach($environment, ['role_id' => $env_role, 'plan_id' => $env_plan]);
+                // build up validated data for others
+                $eventData = $this->validatedEventData($request);
+                // throw event that resource was created and append validated data
+                event(new ResourceCreated($user, $eventData));
 
-            Audit::notice('user "' . $user->email . '" created', $tenant, $environment);
-            // return resource
-            return Response::jsonResource($user->refresh());
-        }
-        return response()->json(['error' => 'Unsufficient resources'], 406);
+                Audit::notice('user "' . $user->email . '" created', $tenant, $environment);
+                // return resource
+                return Response::jsonResource($user->refresh());
+            }
+            return response()->json(['error' => 'Unsufficient resources'], 406);
+        });
     }
 
     /**
@@ -83,70 +85,72 @@ class UserController extends Controller
      */
     public function update(UpdateEnvironmentUserRequest $request, Tenant $tenant, Environment $environment, User $user)
     {
-        Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant, $environment, $user) {
+            Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
 
-        $userData = $request->validated();
-        $tenantRoleProvided = $request->exists('tenant_role');
-        $environmentRoleProvided = $request->exists('environment_role');
-        $tenantRoleId = $this->getNonModelRequestData('tenant_role', $userData);
-        $tenantPlanProvided = $request->has('tenant_plan');
-        $tenantPlanId = $this->getNonModelRequestData('tenant_plan', $userData);
-        $environmentRoleId = $this->getNonModelRequestData('environment_role', $userData);
-        $environmentPlanProvided = $request->has('environment_plan');
-        $environmentPlanId = $this->getNonModelRequestData('environment_plan', $userData);
+            $userData = $request->validated();
+            $tenantRoleProvided = $request->exists('tenant_role');
+            $environmentRoleProvided = $request->exists('environment_role');
+            $tenantRoleId = $this->getNonModelRequestData('tenant_role', $userData);
+            $tenantPlanProvided = $request->has('tenant_plan');
+            $tenantPlanId = $this->getNonModelRequestData('tenant_plan', $userData);
+            $environmentRoleId = $this->getNonModelRequestData('environment_role', $userData);
+            $environmentPlanProvided = $request->has('environment_plan');
+            $environmentPlanId = $this->getNonModelRequestData('environment_plan', $userData);
 
-        // Environment membership administration alone cannot mutate tenant privileges.
-        if ($tenantRoleProvided || $tenantPlanProvided) {
-            Gate::authorize('tenantUpdate', [$user, $tenant]);
-        }
+            // Environment membership administration alone cannot mutate tenant privileges.
+            if ($tenantRoleProvided || $tenantPlanProvided) {
+                Gate::authorize('tenantUpdate', [$user, $tenant]);
+            }
 
-        if (!empty($tenantRoleId)) {
-            RoleAssignments::ensureAssignable($request->user(), $tenantRoleId, 'tenant_role', $tenant);
-        }
-        if (!empty($environmentRoleId)) {
-            RoleAssignments::ensureAssignable($request->user(), $environmentRoleId, 'environment_role', $tenant, $environment);
-        }
-        if ($tenantPlanProvided) {
-            PlanAssignments::ensureAssignableToTenantUser($tenantPlanId, $tenant, 'tenant_plan', $user->id);
-        }
-        if ($environmentPlanProvided) {
-            PlanAssignments::ensureAssignableToEnvironmentUser($environmentPlanId, $tenant, $environment, 'environment_plan', $user->id);
-        }
+            if (!empty($tenantRoleId)) {
+                RoleAssignments::ensureAssignable($request->user(), $tenantRoleId, 'tenant_role', $tenant);
+            }
+            if (!empty($environmentRoleId)) {
+                RoleAssignments::ensureAssignable($request->user(), $environmentRoleId, 'environment_role', $tenant, $environment);
+            }
+            if ($tenantPlanProvided) {
+                PlanAssignments::ensureAssignableToTenantUser($tenantPlanId, $tenant, 'tenant_plan', $user->id);
+            }
+            if ($environmentPlanProvided) {
+                PlanAssignments::ensureAssignableToEnvironmentUser($environmentPlanId, $tenant, $environment, 'environment_plan', $user->id);
+            }
 
-        $user->update($userData);
+            $user->update($userData);
 
-        $tenantPivotData = [];
-        if ($tenantRoleProvided) {
-            $tenantPivotData['role_id'] = $tenantRoleId;
-        }
-        if ($tenantPlanProvided) {
-            $tenantPivotData['plan_id'] = $tenantPlanId;
-        }
-        if ($tenantPivotData !== []) {
-            $user->tenants()->syncWithoutDetaching([
-                $tenant->id => $tenantPivotData,
+            $tenantPivotData = [];
+            if ($tenantRoleProvided) {
+                $tenantPivotData['role_id'] = $tenantRoleId;
+            }
+            if ($tenantPlanProvided) {
+                $tenantPivotData['plan_id'] = $tenantPlanId;
+            }
+            if ($tenantPivotData !== []) {
+                $user->tenants()->syncWithoutDetaching([
+                    $tenant->id => $tenantPivotData,
+                ]);
+            }
+
+            $environmentPivotData = [];
+            if ($environmentRoleProvided) {
+                $environmentPivotData['role_id'] = $environmentRoleId;
+            }
+            if ($environmentPlanProvided) {
+                $environmentPivotData['plan_id'] = $environmentPlanId;
+            }
+            if ($environmentPivotData !== []) {
+                $user->environments()->syncWithoutDetaching([
+                    $environment->id => $environmentPivotData,
+                ]);
+            }
+
+            event(new ResourceUpdated($user, $this->validatedEventData($request)));
+            Audit::info('user "' . $user->email . '" updated', $tenant, $environment, context: [
+                'user_id' => $user->id,
             ]);
-        }
 
-        $environmentPivotData = [];
-        if ($environmentRoleProvided) {
-            $environmentPivotData['role_id'] = $environmentRoleId;
-        }
-        if ($environmentPlanProvided) {
-            $environmentPivotData['plan_id'] = $environmentPlanId;
-        }
-        if ($environmentPivotData !== []) {
-            $user->environments()->syncWithoutDetaching([
-                $environment->id => $environmentPivotData,
-            ]);
-        }
-
-        event(new ResourceUpdated($user, $this->validatedEventData($request)));
-        Audit::info('user "' . $user->email . '" updated', $tenant, $environment, context: [
-            'user_id' => $user->id,
-        ]);
-
-        return Response::jsonResource($user->refresh());
+            return Response::jsonResource($user->refresh());
+        });
     }
 
     /**

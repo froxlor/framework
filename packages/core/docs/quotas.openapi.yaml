@@ -1,0 +1,125 @@
+openapi: 3.1.0
+info:
+  title: froxlor Core plan-resource quotas
+  version: 1.0.0
+  description: Focused quota mutation contract, not the complete Core API.
+security:
+  - bearerAuth: []
+paths:
+  /api/plans/{plan}/resources:
+    parameters:
+      - $ref: '#/components/parameters/Plan'
+    post: &setLimit
+      summary: Assign or update a resource limit
+      description: >-
+        Requires the matching plan resource store permission. Validates all
+        assignments and dependent contracts. All affected reservations are
+        updated atomically. Tenant-owned plans must fit their owner's plan.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resource_id, limit]
+              properties:
+                resource_id:
+                  type: string
+                  description: ULID identifying one resource key and scope.
+                limit:
+                  type: integer
+                  minimum: -1
+                  description: '-1 unlimited, 0 unavailable, positive finite object count.'
+      responses:
+        '200':
+          description: Assigned resources wrapped in data.
+        '401':
+          description: Authentication required.
+        '403':
+          description: Missing authorization or wrong plan scope.
+        '404':
+          description: Plan not found.
+        '422':
+          $ref: '#/components/responses/QuotaValidation'
+  /api/tenants/{tenant}/plans/{plan}/resources:
+    parameters:
+      - $ref: '#/components/parameters/Tenant'
+      - $ref: '#/components/parameters/Plan'
+    post: *setLimit
+  /api/plans/{plan}/resources/{resource}:
+    parameters:
+      - $ref: '#/components/parameters/Plan'
+      - $ref: '#/components/parameters/Resource'
+    delete: &removeLimit
+      summary: Remove a resource limit
+      description: >-
+        Requires the matching plan resource destroy permission. Removal means
+        unavailable and is rejected while usage or a dependent contract requires
+        this resource. Rejection rolls back the plan and reservations.
+      responses:
+        '200':
+          description: Remaining assigned resources wrapped in data.
+        '401':
+          description: Authentication required.
+        '403':
+          description: Missing authorization or wrong plan scope.
+        '404':
+          description: Plan or resource not found.
+        '422':
+          $ref: '#/components/responses/QuotaValidation'
+  /api/tenants/{tenant}/plans/{plan}/resources/{resource}:
+    parameters:
+      - $ref: '#/components/parameters/Tenant'
+      - $ref: '#/components/parameters/Plan'
+      - $ref: '#/components/parameters/Resource'
+    delete: *removeLimit
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Tenant:
+      name: tenant
+      in: path
+      required: true
+      schema: {type: string}
+    Plan:
+      name: plan
+      in: path
+      required: true
+      schema: {type: string}
+    Resource:
+      name: resource
+      in: path
+      required: true
+      schema: {type: string}
+  responses:
+    QuotaValidation:
+      description: Invalid limit or incompatible usage, assignment or dependent plan.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+    QuotaExceeded:
+      description: A resource creation exceeded an applicable quota; database creation is rolled back.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidationError'
+          example:
+            message: Resource limit exceeded (users)
+            errors:
+              resources: ['Resource limit exceeded (users)']
+  schemas:
+    ValidationError:
+      type: object
+      required: [message, errors]
+      properties:
+        message:
+          type: string
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items: {type: string}

@@ -19,8 +19,7 @@ class EnvironmentObserver
     /**
      * Ensure the target tenant may consume another environment resource.
      *
-     * When a parent tenant user creates an environment for a subtenant, both
-     * the acting tenant and the target tenant must have capacity available.
+     * Check the owning tenant. Ancestors already reserved this child's budget.
      *
      * @throws InvalidResourceException
      * @throws ResourceLimitException
@@ -33,11 +32,7 @@ class EnvironmentObserver
         }
 
         $targetTenant = Tenant::query()->findOrFail($environment->tenant_id);
-        $actingTenant = Resource::actingTenantFor(auth()->user(), $targetTenant);
-
-        if ($actingTenant === null
-            || !Resource::hasUsageAvailable($actingTenant, Environment::class, auth()->user())
-            || (!$actingTenant->is($targetTenant) && !Resource::hasUsageAvailable($targetTenant, Environment::class, auth()->user()))) {
+        if (!Resource::hasUsageAvailable($targetTenant, Environment::class, auth()->user())) {
             throw new ResourceLimitException('Resource limit exceeded (' . Environment::getResourceKey() . ')');
         }
     }
@@ -45,8 +40,8 @@ class EnvironmentObserver
     /**
      * Record tenant-level usage for a newly created environment.
      *
-     * Usage is booked on the tenant the user acts from and, when creating for a
-     * subtenant, also on the target tenant so both scopes reflect consumption.
+     * Usage is booked only on the owning tenant; child reservations account for
+     * delegated capacity at each ancestor without charging that capacity twice.
      *
      * @param Environment $environment
      * @throws InvalidResourceException
@@ -61,15 +56,8 @@ class EnvironmentObserver
             return;
         }
 
-        $actingTenant = Resource::actingTenantFor(auth()->user(), $environment->tenant);
-        if ($actingTenant === null) {
-            return;
-        }
-
-        Resource::addUsage($actingTenant, $environment, auth()->user());
-        if (!$actingTenant->is($environment->tenant)) {
-            Resource::addUsage($environment->tenant, $environment, auth()->user());
-        }
+        // Ancestors already reserve the child's plan; charge only the owner.
+        Resource::addUsage($environment->tenant, $environment, auth()->user());
 
     }
 
@@ -78,6 +66,10 @@ class EnvironmentObserver
      */
     public function updated(Environment $environment): void
     {
+        if ($environment->wasChanged('plan_id')) {
+            \Froxlor\Core\Support\PlanAssignments::ensureAssignableToEnvironment(
+                $environment->plan_id, $environment->tenant()->lockForUpdate()->firstOrFail(), 'plan_id', $environment);
+        }
     }
 
     /**

@@ -38,8 +38,10 @@ use Illuminate\Support\Facades\DB;
  * @property Collection<Tenant> $allSubTenants
  * @property Tenant|null $parentTenant
  */
+#[\Illuminate\Database\Eloquent\Attributes\ObservedBy(\Froxlor\Core\Observers\TenantQuotaObserver::class)]
 class Tenant extends Model
 {
+    use \Froxlor\Core\Services\Traits\SavesWithinQuotaTransaction;
     use HasUlids, IsResource, IsTenantResource, HasPermissions, Notifiable;
 
     public $guarded = [];

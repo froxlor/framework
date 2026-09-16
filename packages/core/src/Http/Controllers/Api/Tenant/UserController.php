@@ -37,33 +37,35 @@ class UserController extends Controller
      */
     public function store(StoreTenantUserRequest $request, Tenant $tenant)
     {
-        Gate::authorize('tenantCreate', [User::class, $tenant]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant) {
+            Gate::authorize('tenantCreate', [User::class, $tenant]);
 
-        if ($tenant->userHasResourceAvailable($request->user(), User::getResourceKey())) {
+            if ($tenant->userHasResourceAvailable($request->user(), User::getResourceKey())) {
 
-            // get validated data only for ourselves
-            $userData = $request->validatedResource();
-            $role = $this->getNonModelRequestData('role_id', $userData)
-                ?? $this->getNonModelRequestData('role', $userData);
-            $plan = $this->getNonModelRequestData('plan_id', $userData)
-                ?? $this->getNonModelRequestData('plan', $userData);
+                // get validated data only for ourselves
+                $userData = $request->validatedResource();
+                $role = $this->getNonModelRequestData('role_id', $userData)
+                    ?? $this->getNonModelRequestData('role', $userData);
+                $plan = $this->getNonModelRequestData('plan_id', $userData)
+                    ?? $this->getNonModelRequestData('plan', $userData);
 
-            RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $tenant);
-            PlanAssignments::ensureAssignableToTenantUser($plan, $tenant);
+                RoleAssignments::ensureAssignable($request->user(), $role, 'role_id', $tenant);
+                PlanAssignments::ensureAssignableToTenantUser($plan, $tenant);
 
-            // create resource
-            $user = User::query()->create($userData);
-            $tenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
-            // build up validated data for others
-            $eventData = $this->validatedEventData($request);
-            // throw event that resource was created and append validated data
-            event(new ResourceCreated($user, $eventData));
+                // create resource
+                $user = User::query()->create($userData);
+                $tenant->users()->attach($user, ['role_id' => $role, 'plan_id' => $plan]);
+                // build up validated data for others
+                $eventData = $this->validatedEventData($request);
+                // throw event that resource was created and append validated data
+                event(new ResourceCreated($user, $eventData));
 
-            Audit::notice('user "' . $user->email . '" created', $tenant);
-            // return resource
-            return Response::jsonResource($user->refresh());
-        }
-        return response()->json(['error' => 'Unsufficient resources'], 406);
+                Audit::notice('user "' . $user->email . '" created', $tenant);
+                // return resource
+                return Response::jsonResource($user->refresh());
+            }
+            return response()->json(['error' => 'Unsufficient resources'], 406);
+        });
     }
 
     /**
@@ -97,46 +99,48 @@ class UserController extends Controller
      */
     public function update(UpdateTenantUserRequest $request, Tenant $tenant, User $user)
     {
-        Gate::authorize('tenantUpdate', [$user, $tenant]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant, $user) {
+            Gate::authorize('tenantUpdate', [$user, $tenant]);
 
-        $userData = $request->validated();
-        $roleProvided = $request->exists('role_id') || $request->exists('role');
-        unset($userData['tenant_id']);
-        $roleId = $this->getNonModelRequestData('role_id', $userData)
-            ?? $this->getNonModelRequestData('role', $userData);
-        $planProvided = $request->has('plan');
-        if ($request->has('plan_id')) {
-            $planProvided = true;
-        }
-        $planId = $this->getNonModelRequestData('plan_id', $userData)
-            ?? $this->getNonModelRequestData('plan', $userData);
+            $userData = $request->validated();
+            $roleProvided = $request->exists('role_id') || $request->exists('role');
+            unset($userData['tenant_id']);
+            $roleId = $this->getNonModelRequestData('role_id', $userData)
+                ?? $this->getNonModelRequestData('role', $userData);
+            $planProvided = $request->has('plan');
+            if ($request->has('plan_id')) {
+                $planProvided = true;
+            }
+            $planId = $this->getNonModelRequestData('plan_id', $userData)
+                ?? $this->getNonModelRequestData('plan', $userData);
 
-        RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $tenant);
-        if ($planProvided) {
-            PlanAssignments::ensureAssignableToTenantUser($planId, $tenant, 'plan_id', $user->id);
-        }
+            RoleAssignments::ensureAssignable($request->user(), $roleId, 'role_id', $tenant);
+            if ($planProvided) {
+                PlanAssignments::ensureAssignableToTenantUser($planId, $tenant, 'plan_id', $user->id);
+            }
 
-        $user->update($userData);
+            $user->update($userData);
 
-        $pivotData = [];
-        if ($roleProvided) {
-            $pivotData['role_id'] = $roleId;
-        }
-        if ($planProvided) {
-            $pivotData['plan_id'] = $planId;
-        }
-        if ($pivotData !== []) {
-            $user->tenants()->syncWithoutDetaching([
-                $tenant->id => $pivotData,
+            $pivotData = [];
+            if ($roleProvided) {
+                $pivotData['role_id'] = $roleId;
+            }
+            if ($planProvided) {
+                $pivotData['plan_id'] = $planId;
+            }
+            if ($pivotData !== []) {
+                $user->tenants()->syncWithoutDetaching([
+                    $tenant->id => $pivotData,
+                ]);
+            }
+
+            event(new ResourceUpdated($user, $this->validatedEventData($request)));
+            Audit::info('user "' . $user->email . '" updated', $tenant, context: [
+                'user_id' => $user->id,
             ]);
-        }
 
-        event(new ResourceUpdated($user, $this->validatedEventData($request)));
-        Audit::info('user "' . $user->email . '" updated', $tenant, context: [
-            'user_id' => $user->id,
-        ]);
-
-        return Response::jsonResource($user->refresh());
+            return Response::jsonResource($user->refresh());
+        });
     }
 
     /**

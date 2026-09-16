@@ -25,11 +25,7 @@ class NodeObserver
         }
 
         $targetTenant = Tenant::query()->findOrFail($node->tenant_id);
-        $actingTenant = Resource::actingTenantFor(auth()->user(), $targetTenant);
-
-        if ($actingTenant === null
-            || !Resource::hasUsageAvailable($actingTenant, Node::class, auth()->user())
-            || (!$actingTenant->is($targetTenant) && !Resource::hasUsageAvailable($targetTenant, Node::class, auth()->user()))) {
+        if (!Resource::hasUsageAvailable($targetTenant, Node::class, auth()->user())) {
             throw new ResourceLimitException('Resource limit exceeded (' . Node::getResourceKey() . ')');
         }
     }
@@ -45,13 +41,8 @@ class NodeObserver
         $node->addSetting('node.last_guid_number', 9999, null, 'integer', ['visible' => false]);
 
         if (!empty($node->tenant_id) && auth()->check()) {
-            $actingTenant = Resource::actingTenantFor(auth()->user(), $node->tenant);
-            if ($actingTenant !== null) {
-                Resource::addUsage($actingTenant, $node, auth()->user());
-                if (!$actingTenant->is($node->tenant)) {
-                    Resource::addUsage($node->tenant, $node, auth()->user());
-                }
-            }
+            // Ancestors already reserve the child's plan; charge only the owner.
+            Resource::addUsage($node->tenant, $node, auth()->user());
         }
 
     }

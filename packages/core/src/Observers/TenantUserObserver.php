@@ -3,7 +3,6 @@
 namespace Froxlor\Core\Observers;
 
 use Froxlor\Core\Models\TenantUser;
-use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Resource;
 
 class TenantUserObserver
@@ -14,7 +13,7 @@ class TenantUserObserver
     public function created(TenantUser $tenantUser): void
     {
         // add usage to the owning tenant
-        Resource::addUsage($tenantUser->tenant, $tenantUser->user, $tenantUser->user);
+        Resource::addUsage($tenantUser->tenant, $tenantUser->user, auth()->user() ?? $tenantUser->user);
     }
 
     /**
@@ -22,7 +21,10 @@ class TenantUserObserver
      */
     public function updated(TenantUser $tenantUser): void
     {
-        //
+        if ($tenantUser->wasChanged('plan_id')) {
+            \Froxlor\Core\Support\PlanAssignments::ensureAssignableToTenantUser(
+                $tenantUser->plan_id, $tenantUser->tenant()->lockForUpdate()->firstOrFail(), 'plan_id', $tenantUser->user_id);
+        }
     }
 
     /**
@@ -30,7 +32,7 @@ class TenantUserObserver
      */
     public function deleted(TenantUser $tenantUser): void
     {
-        // remove usage of environment also from the owning tenant
+        // Release the removed tenant membership's slot.
         Resource::removeUsage($tenantUser->tenant, $tenantUser->user);
     }
 

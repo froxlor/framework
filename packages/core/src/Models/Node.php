@@ -57,6 +57,7 @@ use Illuminate\Support\Collection;
 #[ObservedBy(NodeObserver::class)]
 class Node extends Model
 {
+    use \Froxlor\Core\Services\Traits\SavesWithinQuotaTransaction;
     use HasUlids, HasAdapter, HasPermissions, HasSettings, IsResource, IsTenantResource;
 
     protected $guarded = [];

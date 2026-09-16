@@ -28,11 +28,21 @@ use Illuminate\Support\Collection;
  */
 class Plan extends Model
 {
+    use \Froxlor\Core\Services\Traits\TracksTenantQuota;
     use HasUlids, IsResource, IsTenantResource, HasPermissions {
         HasPermissions::getAllPermissions as protected getBasePermissions;
     }
 
     protected $guarded = [];
+
+    /** Keep the assignment check and deletion atomic, including extension callers. */
+    public function delete()
+    {
+        return \Froxlor\Core\Support\Quota::transaction(function () {
+            \Froxlor\Core\Support\PlanAssignments::ensureNotAssigned($this);
+            return parent::delete();
+        });
+    }
 
     public function tenant(): BelongsTo
     {

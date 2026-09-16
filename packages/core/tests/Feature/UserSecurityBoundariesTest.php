@@ -95,7 +95,7 @@ class UserSecurityBoundariesTest extends TestCase
     {
         $actor = $this->tenantUser($this->role(['tenants.users.*']));
         $target = $this->tenantUser($this->role(['tenants.index']));
-        $target->tenants()->updateExistingPivot($this->tenant->id, ['plan_id' => $this->tenant->plan_id]);
+        Model::withoutEvents(fn () => $target->tenants()->updateExistingPivot($this->tenant->id, ['plan_id' => $this->tenant->plan_id]));
         $this->actingAs($actor, 'sanctum')->patchJson($this->tenantPath($target), ['role_id' => null])->assertOk();
         $pivot = $target->tenants()->firstOrFail()->pivot;
         $this->assertNull($pivot->role_id);
@@ -191,7 +191,7 @@ class UserSecurityBoundariesTest extends TestCase
         $this->actingAs($actor, 'sanctum')->patchJson('/api/tenants/'.$this->tenant->id, ['name' => 'Updated root'])->assertOk();
         $other = Tenant::query()->create(['name' => 'Another root', 'plan_id' => $this->tenant->plan_id]);
         try {
-            AdministrationGuard::run(fn () => $this->tenant->update(['parent_tenant_id' => $other->id]));
+            AdministrationGuard::run(fn () => Model::withoutEvents(fn () => $this->tenant->update(['parent_tenant_id' => $other->id])));
             $this->fail('Expected root administration protection.');
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('administration', $exception->errors());
@@ -356,7 +356,7 @@ class UserSecurityBoundariesTest extends TestCase
     private function environmentUser(Role $role): User
     {
         $user = $this->tenantUser(null);
-        $user->environments()->attach($this->environment, ['role_id' => $role->id]);
+        Model::withoutEvents(fn () => $user->environments()->attach($this->environment, ['role_id' => $role->id]));
 
         return $user;
     }
