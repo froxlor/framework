@@ -7,10 +7,15 @@ service is installed by a jail provider.
 
 ## Package contract
 
-Register a `JailProvider` in the package service provider's `boot()`:
+Register providers through the package service provider hooks:
 
 ```php
-app(JailRegistry::class)->register(PhpCliJailProvider::class);
+public function registerEnvironmentJailProviders(JailRegistry $registry): void
+{
+    if ($this->isEnabled()) {
+        $registry->register(PhpCliJailProvider::class);
+    }
+}
 ```
 
 The imports are from `Froxlor\Core\Services\Environment\Jail`. A minimal example:
@@ -23,7 +28,11 @@ final class PhpCliJailProvider implements JailProvider
         return 'froxlor/web:php-cli';
     }
 
-    public function plan(JailContext $context): JailPlan
+    public function package(): string { return 'froxlor/web'; }
+
+    public function settings(): array { return []; }
+
+    public function plan(JailContext $context, EnvironmentSettings $settings): JailPlan
     {
         // The package reads its own persisted, validated configuration using
         // $context->environmentId, $context->tenantId and $context->nodeId.
@@ -53,18 +62,24 @@ chown or process restart is implied. A future SSH/FTP package must separately
 define its authentication and host-account lifecycle. Changing a UID/GID does not
 change file ownership; packages must coordinate existing data/processes explicitly.
 
-Providers receive an immutable identity context, not an adapter. Their output is
-declarative: absolute system binary paths and typed user definitions, not shell
-snippets. Providers are nevertheless installed, trusted PHP code, not a sandbox.
+Providers receive an immutable identity context and typed, validated `EnvironmentSettings`, not an adapter.
+Their output is declarative: absolute system binary paths, users, directories, files and environment
+variables, not shell snippets. Providers are nevertheless installed, trusted PHP code, not a sandbox.
 Do not expose arbitrary provider registration or filesystem paths to customer input.
 
 ## Applying changes
 
 The registry combines **all** active providers deterministically. Shared binaries
 and identical user definitions are merged; conflicting declarations fail before
-node writes. Returning an empty plan disables a provider's contribution.
+node writes. Returning an empty plan disables a provider's contribution. Managed
+files are written atomically, directories are created with the declared mode, and
+environment variables are rendered into `/etc/environment`.
 
-After an authorized package configuration/resource mutation has committed:
+After an authorized package configuration/resource mutation has committed, call
+`EnvironmentSettings::store(...)` (which validates and fans out automatically), or
+explicitly call the package provider's public `reconcileEnvironmentJails()` hook.
+The package lifecycle hooks `installed`, `enabled`, `disabled` and `updated` also
+fan out reconciliation automatically:
 
 ```php
 use Froxlor\Core\Jobs\Environment\SyncEnvironmentJail;
@@ -107,6 +122,8 @@ that attempt's random creation token, never pre-existing host accounts.
   Write-ahead records allow retries after partial changes; individual file writes
   are atomic, but the entire remote operation is **not** a filesystem transaction.
   Package workload/session coordination remains the calling package's responsibility.
+- The persisted `jail_manifest` stores hashes for managed file contents and environment values,
+  never their plaintext payloads.
 - Removing a user removes only managed passwd/group/shadow/gshadow entries. Home
   directories and customer files are retained, and the primary identity is protected.
 - Create, sync and delete share the node environment lifecycle cache lock. Sync

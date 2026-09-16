@@ -21,16 +21,25 @@ final class JailRegistry
         $this->providers[$provider->key()] = $provider;
     }
 
-    /** Union shared binaries/users; conflicting identities fail before infrastructure changes. */
-    public function plan(JailContext $context): array
+    /** Merge declarative package state; all conflicts fail before infrastructure changes. */
+    public function plan(JailContext $context, ?\Froxlor\Core\Models\Environment $environment = null): array
     {
-        $result = ['binaries' => [], 'users' => [], 'providers' => []];
+        $result = ['binaries' => [], 'users' => [], 'files' => [], 'directories' => [], 'environment' => [], 'providers' => []];
         $providers = $this->providers;
         ksort($providers);
         foreach ($providers as $key => $provider) {
-            $plan = $provider->plan($context)->toArray();
+            $settings = EnvironmentSettings::resolve($environment ?? throw new InvalidArgumentException('Environment is required for jail planning.'), $provider);
+            $plan = $provider->plan($context, $settings)->toArray();
             $result['providers'][$key] = hash('sha256', json_encode($plan, JSON_THROW_ON_ERROR));
             $result['binaries'] = array_values(array_unique([...$result['binaries'], ...$plan['binaries']]));
+            foreach (['files', 'directories', 'environment'] as $kind) {
+                foreach ($plan[$kind] as $name => $definition) {
+                    if (isset($result[$kind][$name]) && $result[$kind][$name] !== $definition) {
+                        throw new LogicException('Conflicting jail '.$kind.' definition.');
+                    }
+                    $result[$kind][$name] = $definition;
+                }
+            }
             foreach ($plan['users'] as $name => $user) {
                 if ($name === $context->user || $user['uid'] === $context->guid || $user['gid'] === $context->guid
                     || (isset($result['users'][$name]) && $result['users'][$name] !== $user)) {
@@ -46,6 +55,9 @@ final class JailRegistry
         }
         sort($result['binaries']);
         ksort($result['users']);
+        ksort($result['files']);
+        ksort($result['directories']);
+        ksort($result['environment']);
 
         return $result;
     }

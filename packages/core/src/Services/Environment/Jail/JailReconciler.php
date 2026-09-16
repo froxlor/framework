@@ -18,7 +18,7 @@ final readonly class JailReconciler
     {
         $attachment = $environment->nodes()->whereKey($node->id)->firstOrFail()->pivot;
         $context = JailContext::forEnvironment($environment, $node, $attachment->unix_name, (int) $attachment->guid, $attachment->jail_path);
-        $plan = $this->registry->plan($context);
+        $plan = $this->registry->plan($context, $environment);
         $payload = ['root' => $context->root, 'user' => $context->user, 'guid' => $context->guid, 'plan' => $plan];
         $encoded = base64_encode(json_encode($payload, JSON_THROW_ON_ERROR));
         $helper = file_get_contents(__DIR__.'/../../../../resources/node/reconcile_jail.py');
@@ -28,8 +28,15 @@ final readonly class JailReconciler
         if (trim((string) $node->adapter()->exec([$command])) !== 'FROXLOR_JAIL_OK') {
             throw new NodeException('Jail reconciliation failed. Inspect the node; managed state is retained for retry.');
         }
+        $manifest = $plan;
+        foreach ($manifest['files'] as $path => $definition) {
+            $manifest['files'][$path] = ['sha256' => hash('sha256', $definition['content']), 'mode' => $definition['mode']];
+        }
+        foreach ($manifest['environment'] as $name => $value) {
+            $manifest['environment'][$name] = 'sha256:'.hash('sha256', $value);
+        }
         DB::table('node_environments')->where('node_id', $node->id)->where('environment_id', $environment->id)
-            ->update(['jail_path' => $context->root, 'jail_manifest' => json_encode($plan, JSON_THROW_ON_ERROR), 'updated_at' => now()]);
+            ->update(['jail_path' => $context->root, 'jail_manifest' => json_encode($manifest, JSON_THROW_ON_ERROR), 'updated_at' => now()]);
         Audit::info('environment jail reconciled', $environment->tenant, $environment, [
             'node_id' => $node->id, 'providers' => array_keys($plan['providers']),
         ]);

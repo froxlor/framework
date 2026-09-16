@@ -6,6 +6,8 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\ServiceProvider;
+use Froxlor\Core\Services\Environment\Jail\JailRegistry;
+use Froxlor\Core\Services\Node\Setup\NodeServiceRegistry;
 use RuntimeException;
 
 /**
@@ -22,6 +24,21 @@ use RuntimeException;
  */
 abstract class PackageServiceProvider extends ServiceProvider
 {
+    /** Register node-wide service providers owned by this package. */
+    public function registerNodeServices(NodeServiceRegistry $registry): void {}
+
+    /** Register environment jail providers owned by this package. */
+    public function registerEnvironmentJailProviders(JailRegistry $registry): void {}
+
+    /** Queue a complete environment-jail reconciliation after package state changes. */
+    public function reconcileEnvironmentJails(): int
+    {
+        if ($this->app->bound(\Froxlor\Core\Services\Environment\Jail\EnvironmentJailReconcileDispatcher::class)) {
+            return $this->app->make(\Froxlor\Core\Services\Environment\Jail\EnvironmentJailReconcileDispatcher::class)
+                ->dispatchForPackage($this->packageName());
+        }
+        return 0;
+    }
     /**
      * The composer package name (e.g. "froxlor/example") that this provider belongs to.
      */
@@ -54,7 +71,7 @@ abstract class PackageServiceProvider extends ServiceProvider
      */
     public function installed(): void
     {
-        //
+        $this->reconcileEnvironmentJails();
     }
 
     /**
@@ -67,7 +84,7 @@ abstract class PackageServiceProvider extends ServiceProvider
 
     public function enabled(): void
     {
-        //
+        $this->reconcileEnvironmentJails();
     }
 
     /**
@@ -80,7 +97,7 @@ abstract class PackageServiceProvider extends ServiceProvider
 
     public function disabled(): void
     {
-        //
+        $this->reconcileEnvironmentJails();
     }
 
     /**
@@ -100,7 +117,7 @@ abstract class PackageServiceProvider extends ServiceProvider
      */
     public function updated(): void
     {
-        //
+        $this->reconcileEnvironmentJails();
     }
 
     /**

@@ -64,7 +64,7 @@ class CreateEnvironment implements ShouldQueue
             $guid = $this->resolveNextFreeGuid($adapter, $node->nextGuid);
             $context = JailContext::forEnvironment($environment, $node, $unixName, $guid);
             // Provider conflicts and unsafe paths must fail before creating anything.
-            app(JailRegistry::class)->plan($context);
+            app(JailRegistry::class)->plan($context, $environment);
 
             // base-directory for environment...
             $envBaseDir = $context->root;

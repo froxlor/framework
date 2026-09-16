@@ -24,6 +24,8 @@ use Froxlor\Core\Services\Node\Setup\AdapterNodeServiceExecutor;
 use Froxlor\Core\Services\Node\Setup\NodeServiceExecutor;
 use Froxlor\Core\Services\Node\Setup\NodeServiceRegistry;
 use Froxlor\Core\Services\Node\Setup\Providers\BaseSystemProvider;
+use Froxlor\Core\Services\Environment\Jail\EnvironmentJailReconcileDispatcher;
+use Froxlor\Core\Services\Environment\Jail\JailRegistry;
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Core\Support\PermissionRegistry;
@@ -48,6 +50,12 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
     public function boot(): void
     {
         $this->app->make(NodeServiceRegistry::class)->register(BaseSystemProvider::class);
+        $this->app->booted(function (): void {
+            foreach ($this->app->getProviders(PackageServiceProvider::class) as $provider) {
+                $provider->registerNodeServices($this->app->make(NodeServiceRegistry::class));
+                $provider->registerEnvironmentJailProviders($this->app->make(JailRegistry::class));
+            }
+        });
 
         AboutCommand::add('froxlor', fn() => [
             'version' => FroxlorVersion::release(),
@@ -130,6 +138,7 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
     public function register(): void
     {
         $this->app->singleton(\Froxlor\Core\Services\Environment\Jail\JailRegistry::class);
+        $this->app->singleton(EnvironmentJailReconcileDispatcher::class);
         $this->app->singleton(NodeServiceRegistry::class);
         $this->app->bind(NodeServiceExecutor::class, AdapterNodeServiceExecutor::class);
 

@@ -28,7 +28,17 @@ class JailPlanTest extends TestCase
                 return $this->key;
             }
 
-            public function plan(JailContext $context): JailPlan
+            public function package(): string
+            {
+                return 'froxlor/test';
+            }
+
+            public function settings(): array
+            {
+                return [];
+            }
+
+            public function plan(JailContext $context, \Froxlor\Core\Services\Environment\Jail\EnvironmentSettings $settings): JailPlan
             {
                 return $this->definition;
             }
@@ -41,7 +51,7 @@ class JailPlanTest extends TestCase
         $plan = (new JailPlan)->binary('/usr/bin/php')->user('worker', 20001, 20001);
         $registry->register($this->provider('froxlor/web:php', $plan));
         $registry->register($this->provider('froxlor/jobs:php', $plan));
-        $result = $registry->plan($this->context());
+        $result = $registry->plan($this->context(), new \Froxlor\Core\Models\Environment);
         $this->assertSame(['/usr/bin/php'], $result['binaries']);
         $this->assertCount(1, $result['users']);
         $this->assertCount(2, $result['providers']);
@@ -53,7 +63,7 @@ class JailPlanTest extends TestCase
         $registry->register($this->provider('froxlor/web:worker', (new JailPlan)->user('worker', 20001, 20001)));
         $registry->register($this->provider('froxlor/jobs:worker', (new JailPlan)->user('worker', 20002, 20002)));
         $this->expectException(LogicException::class);
-        $registry->plan($this->context());
+        $registry->plan($this->context(), new \Froxlor\Core\Models\Environment);
     }
 
     public function test_primary_identity_cannot_be_overridden(): void
@@ -61,7 +71,7 @@ class JailPlanTest extends TestCase
         $registry = new JailRegistry;
         $registry->register($this->provider('froxlor/web:worker', (new JailPlan)->user('other', 10001, 20001)));
         $this->expectException(LogicException::class);
-        $registry->plan($this->context());
+        $registry->plan($this->context(), new \Froxlor\Core\Models\Environment);
     }
 
     public function test_unsafe_paths_are_rejected(): void
@@ -90,5 +100,21 @@ class JailPlanTest extends TestCase
         $registry->register($this->provider('froxlor/web:php', new JailPlan));
         $this->expectException(LogicException::class);
         $registry->register($this->provider('froxlor/web:php', new JailPlan));
+    }
+
+    public function test_declarative_files_directories_and_environment_are_exported(): void
+    {
+        $plan = (new JailPlan)
+            ->directory('/etc/php', 0750)
+            ->file('/etc/php/php.ini', "memory_limit=128M\n", 0640)
+            ->environment('APP_ENV', 'production');
+
+        $this->assertSame([
+            'binaries' => [],
+            'users' => [],
+            'files' => ['/etc/php/php.ini' => ['content' => "memory_limit=128M\n", 'mode' => 0640]],
+            'directories' => ['/etc/php' => 0750],
+            'environment' => ['APP_ENV' => 'production'],
+        ], $plan->toArray());
     }
 }

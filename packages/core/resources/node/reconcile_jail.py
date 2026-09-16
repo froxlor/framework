@@ -189,7 +189,7 @@ def apply_state(root, payload, stage):
     """Separated from transport/staging for Linux filesystem regression tests."""
     state_path = destination(root, "/.froxlor-jail-state.json")
     require(not state_path.is_symlink(), "Unsafe jail journal")
-    state = {"version": 1, "files": {}, "users": {}, "entrypoints": []}
+    state = {"version": 1, "files": {}, "users": {}, "entrypoints": [], "directories": []}
     if state_path.exists():
         fingerprint(state_path)
         state = json.loads(state_path.read_text())
@@ -243,6 +243,44 @@ def apply_state(root, payload, stage):
             account_writes[kind] = (path, ("\n".join(records.values()) + "\n").encode())
 
     writes = {}
+    desired_directories = plan.get("directories", {})
+    require(isinstance(desired_directories, dict), "Invalid directory map")
+    for name, mode in desired_directories.items():
+        require(name.startswith('/') and '..' not in name.split('/') and isinstance(mode, int) and 0 <= mode <= 0o777,
+                "Invalid jail directory")
+        directory = destination(root, name, create=True)
+        if not directory.exists():
+            directory.mkdir(mode=mode)
+        require(directory.is_dir() and not directory.is_symlink(), "Managed jail directory is unsafe")
+        os.chmod(directory, mode)
+
+    desired_files = plan.get("files", {})
+    require(isinstance(desired_files, dict), "Invalid file map")
+    for name, definition in desired_files.items():
+        require(name not in ("/etc/passwd", "/etc/group", "/etc/shadow", "/etc/gshadow")
+                and not name.startswith("/.froxlor"), "Protected jail file")
+        require(isinstance(definition, dict) and isinstance(definition.get("content"), str)
+                and isinstance(definition.get("mode"), int) and 0 <= definition["mode"] <= 0o777,
+                "Invalid jail file")
+        path = destination(root, name, create=True)
+        require(not path.is_symlink(), "Managed jail file is a symlink")
+        content = definition["content"].encode()
+        previous = fingerprint(path)
+        new_fingerprint = "sha256:" + hashlib.sha256(content).hexdigest()
+        require(previous is None or previous in state["files"].get(name, []), "Managed file drift: " + name)
+        writes[name] = (content, new_fingerprint, False, definition["mode"])
+        state["files"].setdefault(name, [])
+
+    environment = plan.get("environment", {})
+    require(isinstance(environment, dict), "Invalid environment map")
+    if environment:
+        lines = [f'{key}="{value.replace(chr(92), chr(92)+chr(92)).replace(chr(34), chr(92)+chr(34))}"' for key, value in sorted(environment.items())]
+        path = destination(root, "/etc/environment", create=True)
+        content = ("\n".join(lines) + "\n").encode()
+        previous = fingerprint(path)
+        new_fingerprint = "sha256:" + hashlib.sha256(content).hexdigest()
+        require(previous is None or previous in state["files"].get("/etc/environment", []), "Managed environment drift")
+        writes["/etc/environment"] = (content, new_fingerprint, False, 0o644)
     staged_names = set()
     protected = {"/etc/passwd", "/etc/group", "/etc/shadow", "/etc/gshadow"}
     for source in sorted(stage.rglob("*")):
@@ -278,7 +316,7 @@ def apply_state(root, payload, stage):
 
     # The staging tree is the union of dependencies of ALL desired binaries.
     # Only files first introduced by this reconciler can be garbage-collected.
-    retired = set(state["files"]) - staged_names
+    retired = set(state["files"]) - staged_names - set(desired_files) - ({"/etc/environment"} if environment else set())
     removals = []
     for name in retired:
         if name not in state["files"] or name in writes:
@@ -287,6 +325,7 @@ def apply_state(root, payload, stage):
         current = fingerprint(path)
         require(current is None or current in state["files"][name], "Managed binary drift: " + name)
         removals.append(name)
+    retired_directories = sorted(set(state.get("directories", [])) - set(desired_directories), key=len, reverse=True)
 
     # Write-ahead ownership journal: both old and intended contents are valid on retry.
     for name, (_, new_fingerprint, _, _) in writes.items():
@@ -310,6 +349,13 @@ def apply_state(root, payload, stage):
     for name in removals:
         destination(root, name).unlink(missing_ok=True)
         state["files"].pop(name, None)
+    for name in retired_directories:
+        directory = destination(root, name)
+        require(directory.is_dir() and not directory.is_symlink(), "Managed jail directory drift: " + name)
+        try:
+            directory.rmdir()
+        except OSError:
+            raise RuntimeError("Managed jail directory is not empty: " + name)
     for kind, (path, contents) in account_writes.items():
         destination(root, "/etc/" + kind, create=True)
         atomic_write(path, contents, 0o600 if kind in ("shadow", "gshadow") else 0o644)
@@ -318,6 +364,7 @@ def apply_state(root, payload, stage):
         state["files"][name] = [new_fingerprint]
     state["users"] = {name: {kind: [line] for kind, line in definition.items()} for name, definition in new_users.items()}
     state["entrypoints"] = plan["binaries"]
+    state["directories"] = sorted(desired_directories)
     state["providers"] = plan["providers"]
     atomic_write(state_path, json.dumps(state, sort_keys=True).encode(), 0o600)
 
