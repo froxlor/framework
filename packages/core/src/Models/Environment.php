@@ -48,7 +48,7 @@ class Environment extends Model
             'node_environments',
             'environment_id',
             'node_id'
-        )->withPivot(['unix_name', 'guid'])->using(NodeEnvironment::class);
+        )->withPivot(['unix_name', 'guid', 'jail_path', 'jail_manifest'])->using(NodeEnvironment::class);
     }
 
     public function tenant(): BelongsTo

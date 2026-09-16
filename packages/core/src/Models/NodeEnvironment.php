@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property string $unix_name
  * @property string $guid
  * @property string $mode
+ * @property string|null $jail_path
+ * @property array|null $jail_manifest Last successfully applied package declarations (not ownership authority).
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Node $node
@@ -28,6 +30,11 @@ class NodeEnvironment extends Pivot
 
     public $timestamps = true;
 
+    protected function casts(): array
+    {
+        return ['guid' => 'integer', 'jail_manifest' => 'array'];
+    }
+
     public function node(): BelongsTo
     {
         return $this->belongsTo(Node::class);
@@ -37,5 +44,4 @@ class NodeEnvironment extends Pivot
     {
         return $this->belongsTo(Environment::class);
     }
-
 }

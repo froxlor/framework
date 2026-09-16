@@ -129,16 +129,19 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function register(): void
     {
+        $this->app->singleton(\Froxlor\Core\Services\Environment\Jail\JailRegistry::class);
         $this->app->singleton(NodeServiceRegistry::class);
         $this->app->bind(NodeServiceExecutor::class, AdapterNodeServiceExecutor::class);
 
         // Isolate long-running setup jobs from ordinary queues with short retry windows.
-        if (!$this->app['config']->has('queue.connections.node-setup')) {
-            $driver = $this->app['config']->get('queue.default') === 'redis' ? 'redis' : 'database';
-            $connection = $this->app['config']->get('queue.connections.' . $driver, []);
-            $this->app['config']->set('queue.connections.node-setup', array_merge($connection, [
-                'driver' => $driver, 'queue' => 'node-setup', 'retry_after' => 1500, 'after_commit' => true,
-            ]));
+        foreach (['node-setup' => 1500, 'environment-jails' => 2100] as $queue => $retryAfter) {
+            if (!$this->app['config']->has('queue.connections.' . $queue)) {
+                $driver = $this->app['config']->get('queue.default') === 'redis' ? 'redis' : 'database';
+                $connection = $this->app['config']->get('queue.connections.' . $driver, []);
+                $this->app['config']->set('queue.connections.' . $queue, array_merge($connection, [
+                    'driver' => $driver, 'queue' => $queue, 'retry_after' => $retryAfter, 'after_commit' => true,
+                ]));
+            }
         }
 
         // Configs
