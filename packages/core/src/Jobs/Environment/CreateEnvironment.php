@@ -31,9 +31,14 @@ class CreateEnvironment implements ShouldQueue
      */
     public function handle(): void
     {
-        Cache::lock("nodes:{$this->node->id}:environment-create", 120)->block(30, function () {
+        Cache::lock("nodes:{$this->node->id}:environment-create", 600)->block(60, function () {
             $node = $this->node->refresh();
             $environment = $this->environment->refresh();
+
+            // Queue retries must not provision an already attached environment again.
+            if ($environment->nodes()->whereKey($node->id)->exists()) {
+                return;
+            }
 
             // base-directory for node...
             $nodeBaseDir = $node->getSetting('node.basedir', '/var/environments');
@@ -68,27 +73,50 @@ class CreateEnvironment implements ShouldQueue
                 'userGuid' => $guid,
             ])->render();
 
-            if (!$adapter->storagePut('/tmp/createhome.sh', $createJailCommand)) {
+            $scriptPath = '/tmp/createhome-' . $environment->id . '.sh';
+
+            if (!$adapter->storagePut($scriptPath, $createJailCommand)) {
                 throw new NodeException(trans('Unable to upload jail creation script.'));
             }
 
-            if ($adapter->exec([
-                'apt install sudo jailkit -y',
-                'chmod +x /tmp/createhome.sh',
-                '/tmp/createhome.sh',
-                'rm -f /tmp/createhome.sh'
-            ]) === false) {
-                $adapter->storageDelete('/tmp/createhome.sh');
+            try {
+                if ($adapter->exec([
+                    'if ! command -v jk_init >/dev/null 2>&1 || ! command -v jk_jailuser >/dev/null 2>&1; then',
+                    'export DEBIAN_FRONTEND=noninteractive',
+                    'apt-get update',
+                    'apt-get install -y sudo jailkit',
+                    'fi',
+                    'chmod +x ' . escapeshellarg($scriptPath),
+                    escapeshellarg($scriptPath),
+                    'rm -f ' . escapeshellarg($scriptPath),
+                ]) === false) {
+                    throw new NodeException(trans('Unable to create jail.'));
+                }
 
-                throw new NodeException(trans('Unable to create jail.'));
+                // connect environment with node (must be mode=main)
+                $environment->nodes()->attach($node, [
+                    'unix_name' => $unixName,
+                    'guid' => $guid,
+                    'mode' => 'main'
+                ]);
+            } catch (Throwable $exception) {
+                $this->cleanupFailedProvisioning($adapter, $envBaseDir, $unixName, $scriptPath, $node, $environment);
+
+                throw $exception;
+            } finally {
+                // The script is removed by the successful command chain as well; this also
+                // covers failures before that final command can run.
+                try {
+                    $adapter->storageDelete($scriptPath);
+                } catch (Throwable $cleanupException) {
+                    Log::warning('Unable to remove temporary environment creation script.', [
+                        'node_id' => $node->id,
+                        'environment_id' => $environment->id,
+                        'script' => $scriptPath,
+                        'exception' => $cleanupException,
+                    ]);
+                }
             }
-
-            // connect environment with node (must be mode=main)
-            $environment->nodes()->attach($node, [
-                'unix_name' => $unixName,
-                'guid' => $guid,
-                'mode' => 'main'
-            ]);
 
             event(new EnvironmentCreated($environment));
             Audit::notice('environment "' . $environment->name . '" created on node "' . $node->name . '"', $environment->tenant, $environment, [
@@ -97,6 +125,46 @@ class CreateEnvironment implements ShouldQueue
                 'guid' => $guid,
             ]);
         });
+    }
+
+    /**
+     * Remove remote state left behind by a failed jail creation or database attach.
+     */
+    private function cleanupFailedProvisioning(
+        Adapter $adapter,
+        string $envBaseDir,
+        string $unixName,
+        string $scriptPath,
+        Node $node,
+        Environment $environment,
+    ): void {
+        try {
+            $cleanupResult = $adapter->exec([
+                'JAILBASE=' . escapeshellarg(rtrim($envBaseDir, '/')),
+                'JAILUSER=' . escapeshellarg($unixName),
+                'if mountpoint -q "$JAILBASE/dev/pts"; then umount -l "$JAILBASE/dev/pts" || true; fi',
+                'if mountpoint -q "$JAILBASE/proc"; then umount -l "$JAILBASE/proc" || true; fi',
+                'if getent passwd "$JAILUSER" >/dev/null; then pkill -u "$JAILUSER" || true; fi',
+                'if getent passwd "$JAILUSER" >/dev/null; then userdel "$JAILUSER" || true; fi',
+                'if getent group "$JAILUSER" >/dev/null; then groupdel "$JAILUSER" || true; fi',
+                'if [ -n "$JAILBASE" ] && [ "$JAILBASE" != "/" ] && [ -d "$JAILBASE" ]; then rm -rf -- "$JAILBASE"; fi',
+            ]);
+
+            if ($cleanupResult === false) {
+                Log::warning('Unable to clean up failed environment provisioning.', [
+                    'node_id' => $node->id,
+                    'environment_id' => $environment->id,
+                    'script' => $scriptPath,
+                ]);
+            }
+        } catch (Throwable $cleanupException) {
+            Log::warning('Unable to clean up failed environment provisioning.', [
+                'node_id' => $node->id,
+                'environment_id' => $environment->id,
+                'script' => $scriptPath,
+                'exception' => $cleanupException,
+            ]);
+        }
     }
 
     /**

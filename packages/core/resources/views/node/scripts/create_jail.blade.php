@@ -49,8 +49,9 @@ fi
 # Initialize jail with basic shells, editors, netutils and transfer tools.
 jk_init -j "$JAILBASE" basicshell jk_lsh editors netutils sftp scp rsync
 
-# Create user inside jail
-jk_jailuser -m -j "$JAILBASE" "$JAILUSER"
+# Create user inside jail. The account already has its home below the jail
+# (useradd -m above), so --move would try to copy the home onto itself.
+jk_jailuser -j "$JAILBASE" "$JAILUSER"
 
 # Mount a dedicated proc filesystem for the jail.
 if ! mountpoint -q "$JAILBASE/proc"; then
