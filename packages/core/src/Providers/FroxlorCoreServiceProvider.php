@@ -132,6 +132,15 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
         $this->app->singleton(NodeServiceRegistry::class);
         $this->app->bind(NodeServiceExecutor::class, AdapterNodeServiceExecutor::class);
 
+        // Isolate long-running setup jobs from ordinary queues with short retry windows.
+        if (!$this->app['config']->has('queue.connections.node-setup')) {
+            $driver = $this->app['config']->get('queue.default') === 'redis' ? 'redis' : 'database';
+            $connection = $this->app['config']->get('queue.connections.' . $driver, []);
+            $this->app['config']->set('queue.connections.node-setup', array_merge($connection, [
+                'driver' => $driver, 'queue' => 'node-setup', 'retry_after' => 1500, 'after_commit' => true,
+            ]));
+        }
+
         // Configs
         $this->mergeConfigFrom(__DIR__ . '/../../config/dev.php', 'dev');
     }

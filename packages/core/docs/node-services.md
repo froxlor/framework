@@ -134,9 +134,84 @@ generate a new plan. A submitted serialized plan is never an execution API.
 The default executor checks the Node `update` policy, validates node identity and
 replans after refreshing the node. It writes start/success/failure audit events and
 returns only run ID and fingerprint. It invokes the existing Node adapter explicitly.
-Nothing runs during registration, exploration, package updates or application boot.
-This change does not add routes, UI, automatic node onboarding, readiness gating or
-an automatic Apache/nginx migration.
+Nothing runs during registration, periodic exploration, package updates or application
+boot. Successful **initial** exploration queues the Core base setup as described below.
+There is no UI, Environment readiness gating or automatic Apache/nginx migration.
+
+## Initial setup, queue and repeat requests
+
+Apply the `0001_01_01_000094_add_node_setup_state` migration before deploying the code.
+Both node creation endpoints pass the initiating user ID into initial `ExploreNode`.
+After OS detection and successful exploration, it calls `NodeSetupService`, which
+authorizes the user, persists a pending request and dispatches `Jobs\Node\SetupNode`
+after the database transaction commits. Repeated initial explorations never reschedule
+an existing setup request, including a failed one. Regular scheduled explorations do
+not schedule setup at all. If no valid actor or supported plan is available, the node
+records a failed initial setup instead of installing anything.
+
+`SetupNode` serializes only node/request IDs. At execution it atomically claims the
+matching pending request, reloads the initiating user, checks current Node update
+permissions and compares the current plan against the requested fingerprint. Deleted
+users, revoked permissions and changed connection/configuration/provider revisions
+fail closed. The user context is applied to Gate and Audit and restored in a `finally`
+block, including synchronous execution. Raw adapter errors never enter job error text.
+
+The Node exposes `setup_status` (`null`, `pending`, `running`, `succeeded`, `failed`),
+`setup_request_id`, `setup_requested_by`, `setup_selection`, `setup_fingerprint`,
+`setup_run_id`, `setup_requested_at`, `setup_started_at`, `setup_finished_at` and
+`setup_error`. `null` means setup has not been requested. These fields describe the
+latest request, with audit events retaining its history. For the default executor,
+request ID and remote journal run ID match, including failed attempts.
+
+The dedicated `node-setup` queue connection uses the application's Redis driver when
+the default connection is `redis`; otherwise it uses the database queue. It has a
+1500-second retry window. An explicit `queue.connections.node-setup` configuration
+takes precedence and must retain a retry window greater than the 1260-second job
+timeout. Setup makes one attempt; failures require an explicit new request.
+
+Run a dedicated supervised worker (inside the application container):
+
+```sh
+php artisan queue:work node-setup --queue=node-setup --timeout=1260 --tries=1
+```
+
+The ordinary default-queue worker does not consume this queue. If using Horizon,
+configure a separate supervisor for connection/queue `node-setup` with a timeout
+greater than 1260 seconds and a Redis-backed connection. No worker is started by
+application boot. Restart long-lived workers after deployment.
+
+Authenticated API endpoints (also described in `node-setup.openapi.yaml`):
+
+| Endpoint | Authorization | Result |
+| --- | --- | --- |
+| `GET /api/nodes/{node}/setup` | Node `view` | Latest status, 200 |
+| `POST /api/nodes/{node}/setup` | Node `update` | Queue initial/repeat setup, 202 |
+| `GET /api/tenants/{tenant}/nodes/{node}/setup` | `tenantView` | Latest status, 200 |
+| `POST /api/tenants/{tenant}/nodes/{node}/setup` | `tenantUpdate` and Node `update` | Queue setup for an owned node, 202 |
+
+POST has no request parameters: it reuses the persisted provider selection, defaulting
+to `base-system => froxlor/core:base-system`. It does not accept a serialized plan,
+arbitrary commands, settings or provider overrides. Pending/running requests return
+409; an unsupported platform or invalid plan returns 422; unauthorized callers receive
+401/403. Status responses wrap the fields in `data`, using `status`, `request_id`,
+`requested_by`, `selection`, `fingerprint`, `run_id`, the three timestamps and `error`,
+plus `node_id`. A successful/failed setup can be repeated via POST with a new request ID.
+An inherited/shared node cannot be set up through another tenant's ownership route.
+
+CLI alternatives:
+
+```sh
+php artisan core:explore-node node.example.test --initial --user=<user-ulid>
+php artisan core:setup-node <node-ulid> --user=<user-ulid>
+```
+
+Initial CLI exploration requires an explicit user. Regular exploration retains its
+existing unattended behavior. CLI setup applies the same authorization as the API;
+there is no implicit root/super-admin user. New requests are transactional, duplicate
+job deliveries are ignored, and a timeout failure hook cannot overwrite a newer request.
+After a hard worker crash, an explicit repeat may replace an active request older than
+30 minutes. This never bypasses the node-side lock or unrecovered remote journal:
+inspect and recover the remote state before repeating interrupted installations.
 
 ## Execution and recovery boundaries
 

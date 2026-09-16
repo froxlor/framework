@@ -4,6 +4,7 @@ namespace Froxlor\Core\Console\Commands;
 
 use Froxlor\Core\Jobs\Node\ExploreNode as ExplodeNodeJob;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Contracts\Console\PromptsForMissingInput;
 
@@ -16,7 +17,8 @@ class ExploreNode extends Command implements PromptsForMissingInput
      */
     protected $signature = 'core:explore-node
                             {hostname? : Hostname of the node to be explored }
-                            {--i|initial : Initial exploring includes ip-addresses of given node }';
+                            {--i|initial : Initial exploration includes IP addresses and queues node setup }
+                            {--user= : Initiating user ULID, required for initial exploration }';
 
     /**
      * The console command description.
@@ -31,6 +33,11 @@ class ExploreNode extends Command implements PromptsForMissingInput
     public function handle(): int
     {
         $hostname = $this->argument('hostname');
+        $actor = $this->option('user') ? User::query()->find($this->option('user')) : null;
+        if ($this->option('initial') && $actor === null) {
+            $this->error('Initial exploration requires --user=<user-ulid> for node setup authorization.');
+            return self::FAILURE;
+        }
 
         $nodes = Node::query()
             ->when($hostname, fn($query) => $query->where('hostname', $hostname))
@@ -40,7 +47,7 @@ class ExploreNode extends Command implements PromptsForMissingInput
             foreach ($nodes as $node) {
                 $this->output->info(__('Exploring node :node', ['node' => $node->hostname]));
                 $initial = $this->option('initial');
-                ExplodeNodeJob::dispatchSync($node, $initial);
+                ExplodeNodeJob::dispatchSync($node, $initial, $actor?->id);
             }
             return self::SUCCESS;
         }

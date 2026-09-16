@@ -57,7 +57,7 @@ class NodeController extends Controller
             'node_id' => $node->id,
         ]);
 
-        dispatch(new ExploreNode($node, true));
+        dispatch((new ExploreNode($node, true, $request->user()->id))->afterCommit());
 
         return Response::jsonResource($node->refresh());
     }

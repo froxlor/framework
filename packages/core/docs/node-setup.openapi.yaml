@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: froxlor Core Node Setup API
+  version: 1.0.0
+  description: Explicit setup of explored nodes. Requires the node setup state migration and a node-setup queue worker.
+security:
+  - sanctum: []
+paths:
+  /api/nodes/{node}/setup:
+    parameters:
+      - $ref: '#/components/parameters/Node'
+    get:
+      operationId: getNodeSetup
+      summary: Read the latest setup status (Node view permission)
+      responses:
+        '200': { $ref: '#/components/responses/Status' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: requestNodeSetup
+      summary: Queue or repeat the saved selection (Node update permission)
+      description: No request body. Pending/running requests conflict, except abandoned requests older than 30 minutes. Remote recovery checks remain enforced.
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidPlan' }
+        '500': { description: Queue dispatch failed. The setup request is marked failed when persistence is available. }
+  /api/tenants/{tenant}/nodes/{node}/setup:
+    parameters:
+      - $ref: '#/components/parameters/Tenant'
+      - $ref: '#/components/parameters/Node'
+    get:
+      operationId: getTenantNodeSetup
+      summary: Read setup status (tenantView permission)
+      responses:
+        '200': { $ref: '#/components/responses/Status' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      operationId: requestTenantNodeSetup
+      summary: Queue setup of an owned node (tenantUpdate and Node update permissions)
+      description: No request body. Inherited or foreign nodes cannot be set up through this endpoint.
+      responses:
+        '202': { $ref: '#/components/responses/Accepted' }
+        '401': { $ref: '#/components/responses/Unauthenticated' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/InvalidPlan' }
+        '500': { description: Queue dispatch failed. The setup request is marked failed when persistence is available. }
+components:
+  securitySchemes:
+    sanctum:
+      type: http
+      scheme: bearer
+  parameters:
+    Node:
+      name: node
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+    Tenant:
+      name: tenant
+      in: path
+      required: true
+      schema: { type: string, pattern: '^[0-9A-HJKMNP-TV-Z]{26}$' }
+  responses:
+    Status:
+      description: Latest persisted status; null status means no setup request yet.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SetupResponse' }
+    Accepted:
+      description: Setup queued, not yet installed.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SetupResponse' }
+    Unauthenticated: { description: Authentication required. }
+    Forbidden: { description: Insufficient permissions or node not owned by the requested tenant. }
+    NotFound: { description: Node or tenant does not exist. }
+    Conflict: { description: A current setup request is pending or running. }
+    InvalidPlan: { description: 'Platform, provider selection or settings do not yield a valid plan.' }
+  schemas:
+    SetupResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [node_id, status, request_id, requested_by, selection, fingerprint, run_id, requested_at, started_at, finished_at, error]
+          properties:
+            node_id: { type: string }
+            status: { type: [string, 'null'], enum: [null, pending, running, succeeded, failed] }
+            request_id: { type: [string, 'null'] }
+            requested_by: { type: [string, 'null'] }
+            selection:
+              type: [object, 'null']
+              additionalProperties: { type: string }
+            fingerprint: { type: [string, 'null'] }
+            run_id: { type: [string, 'null'] }
+            requested_at: { type: [string, 'null'], format: date-time }
+            started_at: { type: [string, 'null'], format: date-time }
+            finished_at: { type: [string, 'null'], format: date-time }
+            error: { type: [string, 'null'], description: Sanitized failure description; no transport output or secrets. }

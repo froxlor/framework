@@ -36,7 +36,8 @@ final readonly class AdapterNodeServiceExecutor implements NodeServiceExecutor
             throw new LogicException('Node setup plan is stale. Generate a new plan.');
         }
 
-        $runId = (string) Str::ulid();
+        $runId = $node->setup_status === 'running' && $node->setup_request_id
+            ? $node->setup_request_id : (string) Str::ulid();
         $context = ['node_id' => $node->id, 'run_id' => $runId, 'fingerprint' => $current->fingerprint()];
         Audit::notice('node service setup started', $node->tenant, context: $context);
 
