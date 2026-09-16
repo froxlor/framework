@@ -1,0 +1,170 @@
+openapi: 3.1.0
+info:
+  title: froxlor Core user security changes
+  version: 1.0.0
+  description: Scoped update contracts only; not the complete user and role API.
+security:
+  - bearerAuth: []
+paths:
+  /api/tenants/{tenant}/users/{user}:
+    parameters:
+      - $ref: '#/components/parameters/Tenant'
+      - $ref: '#/components/parameters/User'
+    patch: &tenantUpdate
+      summary: Update a tenant user's profile and scoped membership
+      description: Requires tenants.users.update in the target tenant. Global credentials are not accepted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TenantUserUpdate'
+      responses:
+        '200':
+          description: Updated user resource wrapped in data
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing scoped authorization
+        '404':
+          description: Resource not found
+        '422':
+          description: Invalid fields, conflicting aliases or non-delegable role
+    put: *tenantUpdate
+    delete:
+      summary: Remove tenant membership
+      description: Requires tenants.users.destroy. Last root administrator membership cannot be removed.
+      responses:
+        '200':
+          description: Membership removed
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing scoped authorization
+        '404':
+          description: Resource not found
+        '422':
+          $ref: '#/components/responses/AdministrationProtected'
+  /api/tenants/{tenant}/environments/{environment}/users/{user}:
+    parameters:
+      - $ref: '#/components/parameters/Tenant'
+      - $ref: '#/components/parameters/User'
+      - name: environment
+        in: path
+        required: true
+        schema:
+          type: string
+    patch: &environmentUpdate
+      summary: Update an environment user's profile and scoped membership
+      description: >-
+        Requires tenants.environments.users.update in the environment.
+        tenant_role and tenant_plan also require tenant user update authorization.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnvironmentUserUpdate'
+      responses:
+        '200':
+          description: Updated user resource wrapped in data
+        '401':
+          description: Authentication required
+        '403':
+          description: Missing environment or tenant authorization
+        '404':
+          description: Resource not found
+        '422':
+          description: Invalid fields or non-delegable role
+    put: *environmentUpdate
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  parameters:
+    Tenant:
+      name: tenant
+      in: path
+      required: true
+      schema:
+        type: string
+    User:
+      name: user
+      in: path
+      required: true
+      schema:
+        type: string
+  responses:
+    AdministrationProtected:
+      description: Mutation would remove the last global administrator or existing root access; nothing is committed.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [message, errors]
+            properties:
+              message:
+                type: string
+              errors:
+                type: object
+                properties:
+                  administration:
+                    type: array
+                    items:
+                      type: string
+  schemas:
+    NullableUlid:
+      type: [string, 'null']
+      pattern: '^[0-9A-HJKMNP-TV-Z]{26}$'
+    Profile:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+        last_name:
+          type: string
+          minLength: 1
+        company_name:
+          type: [string, 'null']
+        email: false
+        password: false
+        tenant_id: false
+    TenantUserUpdate:
+      allOf:
+        - $ref: '#/components/schemas/Profile'
+        - type: object
+          description: Null revokes a role without detaching membership. Omission leaves it unchanged.
+          properties:
+            role_id:
+              $ref: '#/components/schemas/NullableUlid'
+            role:
+              $ref: '#/components/schemas/NullableUlid'
+            plan_id:
+              $ref: '#/components/schemas/NullableUlid'
+            plan:
+              $ref: '#/components/schemas/NullableUlid'
+          allOf:
+            - not:
+                required: [role_id, role]
+            - not:
+                required: [plan_id, plan]
+    EnvironmentUserUpdate:
+      allOf:
+        - $ref: '#/components/schemas/Profile'
+        - type: object
+          description: Null revokes only the selected role; membership and other assignments remain.
+          properties:
+            tenant_role:
+              $ref: '#/components/schemas/NullableUlid'
+            environment_role:
+              $ref: '#/components/schemas/NullableUlid'
+            tenant_plan:
+              $ref: '#/components/schemas/NullableUlid'
+            environment_plan:
+              $ref: '#/components/schemas/NullableUlid'
+            role: false
+            role_id: false
+            plan: false
+            plan_id: false

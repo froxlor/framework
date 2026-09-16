@@ -13,6 +13,7 @@ use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\AdministrationGuard;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
@@ -164,10 +165,12 @@ class UserController extends Controller
      */
     public function destroy(User $user)
     {
-        Gate::authorize('delete', $user);
-
-        $tenant = $user->tenants()->first();
-        $user->delete();
+        $tenant = AdministrationGuard::run(function () use ($user) {
+            Gate::authorize('delete', $user);
+            $tenant = $user->tenants()->first();
+            $user->delete();
+            return $tenant;
+        });
         event(new ResourceDeleted($user, []));
         Audit::info('user "' . $user->email . '" deleted', $tenant, context: [
             'user_id' => $user->id,

@@ -86,12 +86,19 @@ class UserController extends Controller
         Gate::authorize('tenantEnvUpdate', [$user, $tenant, $environment]);
 
         $userData = $request->validated();
+        $tenantRoleProvided = $request->exists('tenant_role');
+        $environmentRoleProvided = $request->exists('environment_role');
         $tenantRoleId = $this->getNonModelRequestData('tenant_role', $userData);
         $tenantPlanProvided = $request->has('tenant_plan');
         $tenantPlanId = $this->getNonModelRequestData('tenant_plan', $userData);
         $environmentRoleId = $this->getNonModelRequestData('environment_role', $userData);
         $environmentPlanProvided = $request->has('environment_plan');
         $environmentPlanId = $this->getNonModelRequestData('environment_plan', $userData);
+
+        // Environment membership administration alone cannot mutate tenant privileges.
+        if ($tenantRoleProvided || $tenantPlanProvided) {
+            Gate::authorize('tenantUpdate', [$user, $tenant]);
+        }
 
         if (!empty($tenantRoleId)) {
             RoleAssignments::ensureAssignable($request->user(), $tenantRoleId, 'tenant_role', $tenant);
@@ -109,7 +116,7 @@ class UserController extends Controller
         $user->update($userData);
 
         $tenantPivotData = [];
-        if (!empty($tenantRoleId)) {
+        if ($tenantRoleProvided) {
             $tenantPivotData['role_id'] = $tenantRoleId;
         }
         if ($tenantPlanProvided) {
@@ -122,7 +129,7 @@ class UserController extends Controller
         }
 
         $environmentPivotData = [];
-        if (!empty($environmentRoleId)) {
+        if ($environmentRoleProvided) {
             $environmentPivotData['role_id'] = $environmentRoleId;
         }
         if ($environmentPlanProvided) {

@@ -7,12 +7,13 @@ use Froxlor\Core\Events\Api\ResourceDeleted;
 use Froxlor\Core\Events\Api\ResourceUpdated;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Http\Requests\Tenant\StoreTenantUserRequest;
-use Froxlor\Core\Http\Requests\UpdateUserRequest;
+use Froxlor\Core\Http\Requests\Tenant\UpdateTenantUserRequest;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\AdministrationGuard;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
@@ -94,11 +95,12 @@ class UserController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(UpdateUserRequest $request, Tenant $tenant, User $user)
+    public function update(UpdateTenantUserRequest $request, Tenant $tenant, User $user)
     {
         Gate::authorize('tenantUpdate', [$user, $tenant]);
 
         $userData = $request->validated();
+        $roleProvided = $request->exists('role_id') || $request->exists('role');
         unset($userData['tenant_id']);
         $roleId = $this->getNonModelRequestData('role_id', $userData)
             ?? $this->getNonModelRequestData('role', $userData);
@@ -117,7 +119,7 @@ class UserController extends Controller
         $user->update($userData);
 
         $pivotData = [];
-        if (!empty($roleId)) {
+        if ($roleProvided) {
             $pivotData['role_id'] = $roleId;
         }
         if ($planProvided) {
@@ -142,9 +144,10 @@ class UserController extends Controller
      */
     public function destroy(Request $request, Tenant $tenant, User $user)
     {
-        Gate::authorize('tenantDelete', [$user, $tenant]);
-
-        $tenant->users()->detach($user);
+        AdministrationGuard::run(function () use ($tenant, $user) {
+            Gate::authorize('tenantDelete', [$user, $tenant]);
+            $tenant->users()->detach($user);
+        });
         event(new ResourceDeleted($user, []));
         Audit::info('user "' . $user->email . '" removed', $tenant, context: [
             'user_id' => $user->id,

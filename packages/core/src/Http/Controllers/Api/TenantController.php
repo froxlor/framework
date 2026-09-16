@@ -13,6 +13,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\AdministrationGuard;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -116,7 +117,8 @@ class TenantController extends Controller
             : $tenant->plan;
         $oldParentTenant = $tenant->parentTenant;
 
-        DB::transaction(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+        AdministrationGuard::run(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+            Gate::authorize('update', $tenant);
             if ($oldParentTenant !== null && ($parentTenant === null || $oldParentTenant->id !== $parentTenant->id)) {
                 PlanAssignments::lockTenantBudget($oldParentTenant);
             }
@@ -161,7 +163,10 @@ class TenantController extends Controller
         }
 
         $parentTenant = $tenant->parentTenant;
-        $tenant->delete();
+        AdministrationGuard::run(function () use ($tenant): void {
+            Gate::authorize('delete', $tenant);
+            $tenant->delete();
+        });
         event(new ResourceDeleted($tenant, []));
         Audit::info('tenant "' . $tenant->name . '" deleted', $parentTenant, context: [
             'tenant_id' => $tenant->id,

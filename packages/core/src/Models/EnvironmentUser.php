@@ -12,11 +12,11 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  * @property string $id
  * @property string $environment_id
  * @property string $user_id
- * @property string $role_id
+ * @property string|null $role_id
  * @property string|null $plan_id
  * @property Environment $environment
  * @property User $user
- * @property Role $role
+ * @property Role|null $role
  * @property Plan|null $plan
  */
 class EnvironmentUser extends Pivot
@@ -94,8 +94,7 @@ class EnvironmentUser extends Pivot
     public function hasPermission(string|array $permission): bool
     {
         $possible_permissions = Permission::generatePermissionPath($permission);
-        return $this->role->permissions()
-            ->whereIn('key', $possible_permissions)
+        return $this->role()->whereHas('permissions', fn ($query) => $query->whereIn('key', $possible_permissions))
             ->exists();
     }
 }
