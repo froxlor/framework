@@ -20,6 +20,10 @@ use Froxlor\Core\Policies\RolePolicy;
 use Froxlor\Core\Policies\TenantPolicy;
 use Froxlor\Core\Policies\UserPolicy;
 use Froxlor\Core\Services\Node\Adapter\Local;
+use Froxlor\Core\Services\Node\Setup\AdapterNodeServiceExecutor;
+use Froxlor\Core\Services\Node\Setup\NodeServiceExecutor;
+use Froxlor\Core\Services\Node\Setup\NodeServiceRegistry;
+use Froxlor\Core\Services\Node\Setup\Providers\BaseSystemProvider;
 use Froxlor\Core\Support\FroxlorVersion;
 use Froxlor\Core\Support\PackageServiceProvider;
 use Froxlor\Core\Support\PermissionRegistry;
@@ -43,6 +47,8 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function boot(): void
     {
+        $this->app->make(NodeServiceRegistry::class)->register(BaseSystemProvider::class);
+
         AboutCommand::add('froxlor', fn() => [
             'version' => FroxlorVersion::release(),
         ]);
@@ -123,6 +129,9 @@ class FroxlorCoreServiceProvider extends PackageServiceProvider
 
     public function register(): void
     {
+        $this->app->singleton(NodeServiceRegistry::class);
+        $this->app->bind(NodeServiceExecutor::class, AdapterNodeServiceExecutor::class);
+
         // Configs
         $this->mergeConfigFrom(__DIR__ . '/../../config/dev.php', 'dev');
     }
