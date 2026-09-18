@@ -63,10 +63,13 @@
     "scripts": {
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "cd ../bundle && npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev --prefix ../framework/packages/ui\" --names=server,queue,logs,vite --kill-others"
+            "cd ../froxlor && npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev --prefix ../framework/packages/ui\" --names=server,queue,logs,vite --kill-others"
         ],
         "dev:assets": [
-            "rm -f ../bundle/public/vendor/froxlor/ui && ln -s ../../../../framework/packages/ui/dist ../bundle/public/vendor/froxlor/ui && echo 'Linked assets for development.'"
+            "mkdir -p ../froxlor/public/vendor/froxlor && if [ -e ../froxlor/public/vendor/froxlor/ui ] || [ -L ../froxlor/public/vendor/froxlor/ui ]; then rm -rf ../froxlor/public/vendor/froxlor/ui; fi && ln -s ../../../../framework/packages/ui/dist ../froxlor/public/vendor/froxlor/ui && echo 'Linked UI assets for development.'"
+        ],
+        "assets:publish": [
+            "cd ../froxlor && php artisan vendor:publish --tag=froxlor-ui-assets --ansi --force"
         ]
     },
     "replace": {

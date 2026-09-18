@@ -6,9 +6,14 @@ use Froxlor\Core\Models\Setting as SettingModel;
 use Froxlor\Core\Support\Setting;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Blade;
+use InvalidArgumentException;
+use RuntimeException;
 
 trait HasAssets
 {
+    /** @var array<string, list<string>> */
+    protected static array $assetBundles = [];
+
     /**
      * Register the Blade directive, this is loaded once, so we need to wrap render assets.
      *
@@ -17,9 +22,33 @@ trait HasAssets
      */
     public static function assetsDirective(string $publicPath, array $assets): void
     {
-        Blade::directive('froxlorHead', function () use ($publicPath, $assets) {
-            return "<?php echo \\Froxlor\\UI\\Support\\UI::renderAssets('$publicPath', " . var_export($assets, true) . "); ?>";
+        self::assertAssetPath($publicPath);
+        foreach ($assets as $asset) {
+            if (! is_string($asset) || $asset === '' || str_starts_with($asset, '/') || str_contains($asset, '..')) {
+                throw new InvalidArgumentException('UI assets must be relative paths without traversal segments.');
+            }
+        }
+
+        self::$assetBundles[$publicPath] = array_values(array_unique([
+            ...self::$assetBundles[$publicPath] ?? [],
+            ...$assets,
+        ]));
+
+        Blade::directive('froxlorHead', static function () {
+            return '<?php echo \\Froxlor\\UI\\Support\\UI::renderRegisteredAssets(); ?>';
         });
+    }
+
+    /** Render every asset bundle registered by the loaded packages. */
+    public static function renderRegisteredAssets(): string
+    {
+        $html = [];
+        foreach (self::$assetBundles as $publicPath => $assets) {
+            $html[] = self::renderBundle($publicPath, $assets);
+        }
+        $html[] = self::getCssVariables();
+
+        return implode("\n", array_filter($html));
     }
 
     /**
@@ -31,16 +60,33 @@ trait HasAssets
      */
     public static function renderAssets(string $publicPath, array $assets): string
     {
+        self::assertAssetPath($publicPath);
+
+        return self::renderBundle($publicPath, $assets)."\n".self::getCssVariables();
+    }
+
+    /** @param list<string> $assets */
+    private static function renderBundle(string $publicPath, array $assets): string
+    {
         $html = [];
 
         foreach ($assets as $asset) {
+            if (! is_string($asset) || $asset === '' || str_starts_with($asset, '/') || str_contains($asset, '..')) {
+                throw new InvalidArgumentException('UI assets must be relative paths without traversal segments.');
+            }
             $path = public_path($publicPath . '/' . $asset);
 
-            if (!file_exists($path)) {
-                continue;
+            if (! is_file($path)) {
+                throw new RuntimeException(sprintf(
+                    'UI asset is missing: %s. Publish or link the package assets before rendering the application.',
+                    $path,
+                ));
             }
 
             $hash = md5_file($path);
+            if ($hash === false) {
+                throw new RuntimeException('Unable to hash UI asset: '.$path);
+            }
             $url = asset($publicPath . '/' . $asset) . '?v=' . $hash;
 
             if (str_ends_with($asset, '.css')) {
@@ -51,9 +97,14 @@ trait HasAssets
             }
         }
 
-        $html[] = self::getCssVariables();
-
         return implode("\n", $html);
+    }
+
+    private static function assertAssetPath(string $path): void
+    {
+        if ($path === '' || str_starts_with($path, '/') || str_contains($path, '..')) {
+            throw new InvalidArgumentException('UI asset bundle paths must be relative and traversal-safe.');
+        }
     }
 
     /**

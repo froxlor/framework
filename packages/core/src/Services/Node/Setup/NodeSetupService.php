@@ -122,10 +122,15 @@ final readonly class NodeSetupService
                     ->where('setup_status', 'running')->update([
                         'setup_status' => 'succeeded', 'setup_run_id' => $result->runId,
                         'setup_finished_at' => now(), 'setup_error' => null,
+                        'setup_services' => $result->services,
                     ]);
             });
-        } catch (Throwable) {
-            $this->fail($nodeId, $requestId, 'Node setup failed. Check permissions, current configuration and the node setup journal.');
+        } catch (Throwable $exception) {
+            $message = $exception instanceof RuntimeException
+                && str_starts_with($exception->getMessage(), 'Node setup failed during ')
+                ? $exception->getMessage()
+                : 'Node setup failed. Check permissions, current configuration and the node setup journal.';
+            $this->fail($nodeId, $requestId, $message);
             // Never put raw adapter errors or rendered settings into failed_jobs.
             throw new RuntimeException('Node setup failed. See the node setup status and journal.');
         }

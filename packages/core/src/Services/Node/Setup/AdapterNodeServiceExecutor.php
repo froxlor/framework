@@ -49,16 +49,43 @@ final readonly class AdapterNodeServiceExecutor implements NodeServiceExecutor
             $output = $node->adapter()->exec([$command]);
             // Some adapters do not reliably propagate exit codes; require the final marker too.
             if (! is_string($output) || trim($output) !== 'FROXLOR_SETUP_OK:'.$runId) {
-                throw new RuntimeException('Node setup failed; inspect the root-owned node setup journal.');
+                $phase = trim((string) $node->adapter()->exec([
+                    'cat '.escapeshellarg('/var/lib/froxlor/node-setup/'.$runId.'/phase').' 2>/dev/null || true',
+                ]));
+                $phase = preg_match('/^[a-z0-9][a-z0-9-]*:[a-z0-9][a-z0-9-]*$/', $phase) === 1
+                    ? $phase
+                    : null;
+                $exitCode = trim((string) $node->adapter()->exec([
+                    'cat '.escapeshellarg('/var/lib/froxlor/node-setup/'.$runId.'/exit-code').' 2>/dev/null || true',
+                ]));
+                $exitCode = preg_match('/^[1-9][0-9]*$/', $exitCode) === 1 ? $exitCode : null;
+                $missing = trim((string) $node->adapter()->exec([
+                    'cat '.escapeshellarg('/var/lib/froxlor/node-setup/'.$runId.'/missing-packages').' 2>/dev/null || true',
+                ]));
+                $missing = preg_match('/^(?:[a-z0-9][a-z0-9+.-]*\n?){1,32}$/', $missing) === 1
+                    ? preg_replace('/\s+/', ', ', $missing)
+                    : null;
+                $details = $exitCode === null ? '' : ' (remote exit '.$exitCode.')';
+                if ($missing !== null && $missing !== '') {
+                    $details .= ' Missing packages: '.$missing;
+                }
+
+                throw new RuntimeException($phase === null
+                    ? 'Node setup failed; inspect the root-owned node setup journal.'
+                    : 'Node setup failed during '.$phase.$details.'.');
             }
-        } catch (Throwable) {
+        } catch (Throwable $exception) {
             Audit::error('node service setup failed', $node->tenant, context: $context);
             // Adapter exceptions or stderr can contain secrets. Do not propagate them.
+            if ($exception instanceof RuntimeException
+                && str_starts_with($exception->getMessage(), 'Node setup failed during ')) {
+                throw $exception;
+            }
             throw new RuntimeException('Node setup failed; inspect the root-owned node setup journal.');
         }
 
         Audit::notice('node service setup completed', $node->tenant, context: $context);
 
-        return new NodeSetupResult($runId, $current->fingerprint());
+        return new NodeSetupResult($runId, $current->fingerprint(), $current->serviceSnapshot());
     }
 }

@@ -55,6 +55,7 @@ class NodeSetupController extends Controller
             'started_at' => $node->setup_started_at,
             'finished_at' => $node->setup_finished_at,
             'error' => $node->setup_error,
+            'services' => $node->setup_services,
         ]], $code);
     }
 }

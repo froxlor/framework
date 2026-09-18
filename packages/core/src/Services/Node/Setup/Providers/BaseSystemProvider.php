@@ -31,7 +31,7 @@ final class BaseSystemProvider implements NodeServiceProvider
 
     public function platforms(): array
     {
-        return ['debian@13', 'ubuntu@24.04'];
+        return ['debian@12', 'debian@13', 'ubuntu@24.04'];
     }
 
     public function requires(): array

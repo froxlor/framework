@@ -113,10 +113,10 @@ new class extends Component
                                 {{ $cancelLabel }}
                             </x-ui::button>
                             <x-ui::button
-                                type="button"
+                                type="submit"
+                                :form="$formId"
                                 :icon="$iconName"
                                 :variant="$action->variant ?? 'primary'"
-                                x-on:click.prevent="document.getElementById('{{ $formId }}')?.submit()"
                             >
                                 {{ $confirmLabel }}
                             </x-ui::button>

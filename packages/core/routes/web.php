@@ -21,6 +21,8 @@ Route::middleware(['web', 'auth', EnsureIsInstalled::class])->group(function () 
     Route::prefix('resources')->name('resources.')->group(function () {
         Route::resource('plans', Web\PlanController::class);
         Route::resource('nodes', Web\NodeController::class);
+        Route::post('nodes/{node}/setup', [Web\NodeController::class, 'setup'])
+            ->name('nodes.setup');
         Route::resource('tenants', Web\TenantController::class);
     });
 

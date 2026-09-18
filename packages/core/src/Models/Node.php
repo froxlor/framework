@@ -37,6 +37,7 @@ use Illuminate\Support\Collection;
  * @property string|null $setup_request_id
  * @property string|null $setup_requested_by
  * @property array|null $setup_selection
+ * @property array|null $setup_services
  * @property string|null $setup_fingerprint
  * @property string|null $setup_run_id
  * @property Carbon|null $setup_requested_at
@@ -72,6 +73,7 @@ class Node extends Model
         'password' => 'encrypted',
         'properties' => 'encrypted:array',
         'setup_selection' => 'array',
+        'setup_services' => 'array',
         'setup_requested_at' => 'datetime',
         'setup_started_at' => 'datetime',
         'setup_finished_at' => 'datetime',

@@ -79,6 +79,8 @@ class NodeController extends Controller
     {
         Gate::authorize('view', $node);
 
+        $node->setAttribute('setup_status', $node->setup_status ?? 'not_started');
+
         return Response::jsonResource($node->load(['nodeInterfaces', 'environments.tenant']));
     }
 

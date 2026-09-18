@@ -71,6 +71,24 @@ class NodeView
                                                         ->default($node->sudo ? trans('froxlor-core::generic.yes') : trans('froxlor-core::generic.no')),
                                                 ]),
 
+                                            Schemas\Components\Section::make('resources.nodes.show.details.setup')
+                                                ->title(trans('froxlor-core::generic.node_setup'))
+                                                ->description(trans('froxlor-core::generic.node_setup_description'))
+                                                ->components([
+                                                    Schemas\Components\Text::make('setup_status')
+                                                        ->label(trans('froxlor-core::generic.status')),
+
+                                                    Schemas\Components\Text::make('setup_finished_at')
+                                                        ->label(trans('froxlor-core::generic.node_setup_last_verified')),
+
+                                                    Schemas\Components\Text::make('setup_services')
+                                                        ->label(trans('froxlor-core::generic.node_setup_services'))
+                                                        ->default(trans('froxlor-core::generic.node_setup_no_services')),
+
+                                                    Schemas\Components\Text::make('setup_error')
+                                                        ->label(trans('froxlor-core::generic.last_error')),
+                                                ]),
+
                                             Schemas\Components\Section::make('resources.nodes.show.details.network')
                                                 ->title(trans('froxlor-core::generic.network'))
                                                 ->description(trans('froxlor-core::generic.node_network_description'))
@@ -136,6 +154,17 @@ class NodeView
             Schemas\Actions\Action::make('back')
                 ->label(trans('froxlor-core::generic.backto', ['entity' => trans('froxlor-core::generic.nodes')]))
                 ->href(route('resources.nodes.index')),
+
+            Schemas\Actions\Action::make('setup')
+                ->label(fn() => $node->setup_status === null
+                    ? trans('froxlor-core::generic.node_setup_start')
+                    : trans('froxlor-core::generic.node_setup_retry'))
+                ->href(route('resources.nodes.setup', ['node' => $node]))
+                ->method('POST')
+                ->visible(fn() => ! in_array($node->setup_status, ['pending', 'running'], true))
+                ->confirm()
+                ->icon('wrench')
+                ->variant('secondary'),
         ];
     }
 
