@@ -12,6 +12,7 @@ use Froxlor\Core\Jobs\Environment\CreateEnvironment;
 use Froxlor\Core\Models\Environment;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\PlanAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -35,29 +36,34 @@ class EnvironmentController extends Controller
      */
     public function store(StoreEnvironmentRequest $request, Tenant $tenant)
     {
-        Gate::authorize('tenantCreate', [Environment::class, $tenant]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant) {
+            Gate::authorize('tenantCreate', [Environment::class, $tenant]);
 
-        // get validated data only for ourselves
-        $envData = $request->validatedResource();
-        // fixed values
-        $envData['tenant_id'] = $tenant->id;
-        // non-model values
-        $node_id = $this->getNonModelRequestData('node_id', $envData);
-        PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
-        // create resource
-        $env = Environment::query()->create($envData);
-        // build up validated data for others
-        $eventData = $this->validatedEventData($request);
-        // throw event that resource was created and append validated data
-        event(new ResourceCreated($env, $eventData));
-        // connect to node and create environment if given
-        if (!empty($node_id)) {
-            $node = $this->nodeForTenant($node_id, $tenant);
-            dispatch(new CreateEnvironment($env->refresh(), $node));
-        }
+            // get validated data only for ourselves
+            $envData = $request->validatedResource();
+            // fixed values
+            $envData['tenant_id'] = $tenant->id;
+            // non-model values
+            $node_id = $this->getNonModelRequestData('node_id', $envData);
+            PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'] ?? null, $tenant);
+            // create resource
+            $env = Environment::query()->create($envData);
+            // build up validated data for others
+            $eventData = $this->validatedEventData($request);
+            // throw event that resource was created and append validated data
+            event(new ResourceCreated($env, $eventData));
+            Audit::notice('environment "' . $env->name . '" created', $tenant, $env, [
+                'plan_id' => $env->plan_id,
+            ]);
+            // connect to node and create environment if given
+            if (!empty($node_id)) {
+                $node = $this->nodeForTenant($node_id, $tenant);
+                dispatch((new CreateEnvironment($env->refresh(), $node))->afterCommit());
+            }
 
-        // return resource
-        return Response::jsonResource($env->refresh());
+            // return resource
+            return Response::jsonResource($env->refresh());
+        });
     }
 
     /**
@@ -75,23 +81,28 @@ class EnvironmentController extends Controller
      */
     public function update(UpdateEnvironmentRequest $request, Tenant $tenant, Environment $environment)
     {
-        Gate::authorize('tenantUpdate', [$environment, $tenant]);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request, $tenant, $environment) {
+            Gate::authorize('tenantUpdate', [$environment, $tenant]);
 
-        $envData = $request->validated();
-        $nodeId = $this->getNonModelRequestData('node_id', $envData);
-        if (array_key_exists('plan_id', $envData)) {
-            PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'], $tenant, 'plan_id', $environment);
-        }
+            $envData = $request->validated();
+            $nodeId = $this->getNonModelRequestData('node_id', $envData);
+            if (array_key_exists('plan_id', $envData)) {
+                PlanAssignments::ensureAssignableToEnvironment($envData['plan_id'], $tenant, 'plan_id', $environment);
+            }
 
-        $environment->update($envData);
-        event(new ResourceUpdated($environment, $this->validatedEventData($request)));
+            $environment->update($envData);
+            event(new ResourceUpdated($environment, $this->validatedEventData($request)));
+            Audit::info('environment "' . $environment->name . '" updated', $tenant, $environment, [
+                'plan_id' => $environment->plan_id,
+            ]);
 
-        if (!empty($nodeId)) {
-            $node = $this->nodeForTenant($nodeId, $tenant);
-            dispatch(new CreateEnvironment($environment->refresh(), $node));
-        }
+            if (!empty($nodeId)) {
+                $node = $this->nodeForTenant($nodeId, $tenant);
+                dispatch((new CreateEnvironment($environment->refresh(), $node))->afterCommit());
+            }
 
-        return Response::jsonResource($environment->refresh());
+            return Response::jsonResource($environment->refresh());
+        });
     }
 
     /**
@@ -103,6 +114,9 @@ class EnvironmentController extends Controller
 
         $environment->delete();
         event(new ResourceDeleted($environment, []));
+        Audit::info('environment "' . $environment->name . '" deleted', $tenant, $environment, [
+            'plan_id' => $environment->plan_id,
+        ]);
 
         return response()->noContent();
     }

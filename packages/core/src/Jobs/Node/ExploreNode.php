@@ -6,8 +6,11 @@ use Exception;
 use Froxlor\Core\Events\Node\NodeExplored;
 use Froxlor\Core\Events\Node\NodeExploreUpdate;
 use Froxlor\Core\Models\Node;
+use Froxlor\Core\Models\User;
 use Froxlor\Core\Services\Node\Adapter\Adapter;
 use Froxlor\Core\Services\Node\Platform\PlatformResolver;
+use Froxlor\Core\Services\Node\Setup\NodeSetupService;
+use Froxlor\Core\Services\Node\Setup\NodeSetupActor;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 
@@ -15,7 +18,7 @@ class ExploreNode implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(private readonly Node $node, private readonly bool $initial = false)
+    public function __construct(private readonly Node $node, private readonly bool $initial = false, private readonly ?string $actorId = null)
     {
         //
     }
@@ -28,6 +31,16 @@ class ExploreNode implements ShouldQueue
      * @throws Exception
      */
     public function handle(): void
+    {
+        $actor = $this->initial && $this->actorId ? User::query()->find($this->actorId) : null;
+        if ($actor !== null) {
+            app(NodeSetupActor::class)->run($actor, fn () => $this->explore());
+        } else {
+            $this->explore();
+        }
+    }
+
+    private function explore(): void
     {
         $adapter = $this->node->adapter();
 
@@ -64,7 +77,7 @@ EOC
                 // get node ip addresses assigned to the system
                 $ips = $adapter->exec(['hostname -I']);
                 foreach (explode(" ", trim($ips)) as $ipaddr) {
-                    $this->node->nodeInterfaces()->create([
+                    $this->node->nodeInterfaces()->firstOrCreate([
                         'bind_addr' => trim($ipaddr),
                     ]);
                 }
@@ -76,6 +89,9 @@ EOC
             if ($this->node->isDirty()) {
                 $this->node->save();
                 event(new NodeExploreUpdate($this->node));
+            }
+            if ($this->initial) {
+                app(NodeSetupService::class)->afterInitialExploration($this->node, $this->actorId);
             }
         } else {
             throw new Exception('Unable to connect to node');

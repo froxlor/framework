@@ -16,7 +16,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        Setting::set('auditlog.severity', 7, 'integer', 5);
+        Setting::set('auditlog.severity', 7, 'integer', 5, 'froxlor/core');
 
         $this->call([
             PlansAndResourcesTableSeeder::class,

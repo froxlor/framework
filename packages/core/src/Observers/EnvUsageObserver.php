@@ -3,7 +3,6 @@
 namespace Froxlor\Core\Observers;
 
 use Froxlor\Core\Models\EnvUsage;
-use Froxlor\Core\Support\Resource;
 
 class EnvUsageObserver
 {
@@ -12,8 +11,7 @@ class EnvUsageObserver
      */
     public function created(EnvUsage $envUsage): void
     {
-        // add usage of environment also to the owning tenant
-        Resource::addEnvironmentUsage($envUsage->environment, $envUsage->resource);
+        // Tenant totals aggregate env_usage through environments. Never book a second row.
     }
 
     /**
@@ -29,8 +27,7 @@ class EnvUsageObserver
      */
     public function deleted(EnvUsage $envUsage): void
     {
-        // remove usage of environment also from the owning tenant
-        Resource::removeEnvironmentUsage($envUsage->environment, $envUsage->resource);
+        // Removing this ledger row already removes it from the owner's aggregate.
     }
 
     /**

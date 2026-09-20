@@ -15,7 +15,7 @@ abstract class Action implements Payloadable, Resolvable
 
     public string $key;
 
-    public ?string $label = null;
+    public mixed $label = null;
 
     public ?string $href = null;
 
@@ -35,6 +35,8 @@ abstract class Action implements Payloadable, Resolvable
 
     public ?string $variant = null;
 
+    public mixed $visible = true;
+
     protected string $view;
 
     public function __construct(string $key)
@@ -49,7 +51,7 @@ abstract class Action implements Payloadable, Resolvable
 
     public function label(callable|string|null $value): static
     {
-        $this->label = trans($value);
+        $this->label = is_string($value) ? trans($value) : $value;
 
         return $this;
     }
@@ -140,12 +142,20 @@ abstract class Action implements Payloadable, Resolvable
         return $this;
     }
 
+    public function visible(callable|bool $value = true): static
+    {
+        $this->visible = $value;
+
+        return $this;
+    }
+
     public function resolve(array $context = []): static
     {
         $clone = clone $this;
         $clone->label = AttributeResolver::value($this->label, $context);
         $clone->href = AttributeResolver::value($this->href, $context);
         $clone->variant = AttributeResolver::value($this->variant, $context);
+        $clone->visible = AttributeResolver::value($this->visible, $context) ?? true;
         $clone->handler = $this->handler;
         $clone->handlerToken = $this->handlerToken;
         $confirm = $this->confirm;
@@ -180,6 +190,7 @@ abstract class Action implements Payloadable, Resolvable
             'icon' => $resolved->icon,
             'method' => $resolved->method,
             'variant' => $resolved->variant,
+            'visible' => $resolved->visible,
             'view' => $this->view,
         ];
     }

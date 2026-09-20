@@ -23,21 +23,22 @@ class PlanAssignments
      */
     public static function ensureAssignableToTenantUser(?string $planId, Tenant $tenant, string $field = 'plan_id', ?string $userId = null): void
     {
+        $tenant = Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
         if (empty($planId)) {
-            if ($userId !== null && $tenant->plan !== null) {
-                self::ensureTenantUserUsageWithinPlan($tenant, $userId, $tenant->plan, $field);
+            if ($userId !== null && $tenant->plan()->lockForUpdate()->first() !== null) {
+                self::ensureTenantUserUsageWithinPlan($tenant, $userId, $tenant->plan()->lockForUpdate()->first(), $field);
             }
             return;
         }
 
-        $plan = Plan::query()->with('resources')->findOrFail($planId);
+        $plan = Plan::query()->whereKey($planId)->lockForUpdate()->firstOrFail();
 
         if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, 'The selected plan is not available for this tenant.');
         }
 
         self::ensureHasEnabledResources($plan, $field, 'The selected plan does not contain enabled resources.');
-        self::ensureWithinParentPlan($plan, $tenant->plan, $field);
+        self::ensureWithinParentPlan($plan, $tenant->plan()->lockForUpdate()->first(), $field);
 
         if ($userId !== null) {
             self::ensureTenantUserUsageWithinPlan($tenant, $userId, $plan, $field);
@@ -60,6 +61,10 @@ class PlanAssignments
         string $field = 'environment_plan',
         ?string $userId = null,
     ): void {
+        $environment = Environment::query()->whereKey($environment->id)->lockForUpdate()->firstOrFail();
+        if ($environment->tenant_id !== $tenant->id) {
+            throw self::validationException($field, 'The environment does not belong to this tenant.');
+        }
         if (empty($planId)) {
             $parentPlan = self::environmentParentPlan($environment);
             if ($userId !== null && $parentPlan !== null) {
@@ -68,7 +73,7 @@ class PlanAssignments
             return;
         }
 
-        $plan = Plan::query()->with('resources')->findOrFail($planId);
+        $plan = Plan::query()->whereKey($planId)->lockForUpdate()->firstOrFail();
 
         if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, 'The selected plan is not available for this environment.');
@@ -94,11 +99,11 @@ class PlanAssignments
     public static function ensureNotAssigned(Plan $plan): void
     {
         $assignments = [
-            'tenants' => DB::table('tenants')->where('plan_id', $plan->id)->count(),
-            'environments' => DB::table('environments')->where('plan_id', $plan->id)->count(),
-            'tenant users' => DB::table('tenant_user')->where('plan_id', $plan->id)->count(),
-            'environment users' => DB::table('environment_user')->where('plan_id', $plan->id)->count(),
-            'tenant reservations' => DB::table('tenant_resource_reservations')->where('plan_id', $plan->id)->count(),
+            'tenants' => DB::table('tenants')->where('plan_id', $plan->id)->lockForUpdate()->get(['id'])->count(),
+            'environments' => DB::table('environments')->where('plan_id', $plan->id)->lockForUpdate()->get(['id'])->count(),
+            'tenant users' => DB::table('tenant_user')->where('plan_id', $plan->id)->lockForUpdate()->get(['id'])->count(),
+            'environment users' => DB::table('environment_user')->where('plan_id', $plan->id)->lockForUpdate()->get(['id'])->count(),
+            'tenant reservations' => DB::table('tenant_resource_reservations')->where('plan_id', $plan->id)->lockForUpdate()->get(['id'])->count(),
         ];
 
         $usedBy = collect($assignments)
@@ -115,23 +120,27 @@ class PlanAssignments
      * Assign or update one resource limit and revalidate every existing plan assignment.
      *
      * Used plans stay editable, but the resulting plan must still fit all places where
-     * it is assigned. For child tenants, reservations are synchronized after successful
-     * validation so parent budgets immediately reflect the changed limits.
+     * it is assigned. All child reservations are changed together before validation;
+     * a failed validation rolls back both the plan and every reservation.
      *
      * @throws ValidationException
      */
     public static function updatePlanResourceLimit(Plan $plan, Resource $resource, int $limit, ?Tenant $tenant = null): void
     {
-        DB::transaction(function () use ($plan, $resource, $limit, $tenant): void {
+        Quota::transaction(function () use ($plan, $resource, $limit, $tenant): void {
+            if ($limit < -1) {
+                throw self::validationException('limit', 'A limit must be -1, zero or positive.');
+            }
             self::lockPlanAssignments($plan);
+            $tenant = $plan->tenant_id === null ? null : Tenant::query()->whereKey($plan->tenant_id)->lockForUpdate()->firstOrFail();
             self::ensureResourceCanBeAttached($plan, $resource, $limit, $tenant, 'limit');
 
             $plan->resources()->syncWithoutDetaching([
                 $resource->id => ['limit' => $limit],
             ]);
 
-            self::ensureAssignedPlanRemainsValid($plan->refresh());
             self::syncReservationsForAssignedTenants($plan->refresh());
+            self::ensureAssignedPlanRemainsValid($plan->refresh());
         });
     }
 
@@ -145,13 +154,13 @@ class PlanAssignments
      */
     public static function removePlanResource(Plan $plan, Resource $resource): void
     {
-        DB::transaction(function () use ($plan, $resource): void {
+        Quota::transaction(function () use ($plan, $resource): void {
             self::lockPlanAssignments($plan);
 
             $plan->resources()->detach($resource);
 
-            self::ensureAssignedPlanRemainsValid($plan->refresh());
             self::syncReservationsForAssignedTenants($plan->refresh());
+            self::ensureAssignedPlanRemainsValid($plan->refresh());
         });
     }
 
@@ -175,7 +184,7 @@ class PlanAssignments
             return;
         }
 
-        $parentPlan = $tenant->plan;
+        $parentPlan = $tenant->plan()->lockForUpdate()->first();
         if ($parentPlan === null) {
             throw self::validationException('limit', 'The resource cannot be assigned without a parent plan.');
         }
@@ -183,7 +192,7 @@ class PlanAssignments
         $parentResource = $parentPlan->resources()
             ->where('resources.key', $resource->key)
             ->where('resources.type', $resource->type)
-            ->first();
+            ->lockForUpdate()->first();
         $parentLimit = $parentResource === null ? null : (int)$parentResource->pivot->limit;
 
         if ($parentLimit === null || $parentLimit === 0) {
@@ -216,10 +225,10 @@ class PlanAssignments
         }
 
         $parentResources = $parentPlan->resources()
-            ->get()
+            ->lockForUpdate()->get()
             ->mapWithKeys(fn($resource) => [self::resourceIdentifier($resource->key, $resource->type) => (int)$resource->pivot->limit]);
 
-        $childResources = $childPlan->resources()->get();
+        $childResources = $childPlan->resources()->lockForUpdate()->get();
 
         foreach ($childResources as $childResource) {
             $childLimit = (int)$childResource->pivot->limit;
@@ -262,7 +271,7 @@ class PlanAssignments
             throw self::validationException($field, 'The selected plan is not available for child tenants.');
         }
 
-        self::ensureWithinParentPlan($plan->loadMissing('resources'), $parentTenant->plan, $field);
+        self::ensureWithinParentPlan($plan, $parentTenant->plan()->lockForUpdate()->first(), $field);
         self::ensureWithinAvailableTenantBudget($plan, $parentTenant, $childTenant, $field);
 
         if ($childTenant !== null) {
@@ -281,7 +290,7 @@ class PlanAssignments
             return;
         }
 
-        $plan = Plan::query()->findOrFail($planId);
+        $plan = Plan::query()->whereKey($planId)->lockForUpdate()->firstOrFail();
 
         if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, trans('validation.exists', ['attribute' => $field]));
@@ -299,24 +308,59 @@ class PlanAssignments
      */
     public static function ensureAssignableToEnvironment(?string $planId, Tenant $tenant, string $field = 'plan_id', ?Environment $environment = null): void
     {
+        $tenant = Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
         if ($planId === null) {
-            if ($environment !== null && $tenant->plan !== null) {
-                self::ensureEnvironmentUsageWithinPlan($environment, $tenant->plan, $field);
+            if ($environment !== null && $tenant->plan()->lockForUpdate()->first() !== null) {
+                self::ensureEnvironmentUsageWithinPlan($environment, $tenant->plan()->lockForUpdate()->first(), $field);
+                self::ensureEnvironmentDependents($environment, $tenant->plan()->lockForUpdate()->first(), $field);
             }
             return;
         }
 
-        $plan = Plan::query()->with('resources')->findOrFail($planId);
+        $plan = Plan::query()->whereKey($planId)->lockForUpdate()->firstOrFail();
 
         if (!$plan->isAvailableForTenant($tenant)) {
             throw self::validationException($field, trans('validation.exists', ['attribute' => $field]));
         }
 
         self::ensureHasEnabledResources($plan, $field, 'The selected plan does not contain enabled resources.');
-        self::ensureWithinParentPlan($plan, $tenant->plan, $field);
+        self::ensureWithinParentPlan($plan, $tenant->plan()->lockForUpdate()->first(), $field);
 
         if ($environment !== null) {
             self::ensureEnvironmentUsageWithinPlan($environment, $plan, $field);
+            self::ensureEnvironmentDependents($environment, $plan, $field);
+        }
+    }
+
+    /** Validate both usage and every explicit downstream contract against a new tenant plan. */
+    public static function ensureTenantContract(Tenant $tenant, Plan $plan, string $field = 'plan_id'): void
+    {
+        self::ensureTenantUsageWithinPlan($tenant, $plan, $field);
+        foreach (Plan::query()->where('tenant_id', $tenant->id)->lockForUpdate()->get() as $ownedPlan) {
+            self::ensureWithinParentPlan($ownedPlan, $plan, $field);
+        }
+        foreach (DB::table('tenant_user')->where('tenant_id', $tenant->id)->lockForUpdate()->get() as $membership) {
+            $userPlan = $membership->plan_id === null ? $plan : Plan::query()->whereKey($membership->plan_id)->lockForUpdate()->firstOrFail();
+            self::ensureWithinParentPlan($userPlan, $plan, $field);
+            self::ensureTenantUserUsageWithinPlan($tenant, $membership->user_id, $userPlan, $field);
+        }
+        foreach (Environment::query()->where('tenant_id', $tenant->id)->lockForUpdate()->get() as $environment) {
+            $environmentPlan = $environment->plan_id === null ? $plan : $environment->plan()->lockForUpdate()->firstOrFail();
+            self::ensureWithinParentPlan($environmentPlan, $plan, $field);
+            self::ensureEnvironmentUsageWithinPlan($environment, $environmentPlan, $field);
+            self::ensureEnvironmentDependents($environment, $environmentPlan, $field);
+        }
+        foreach (Tenant::query()->where('parent_tenant_id', $tenant->id)->lockForUpdate()->get() as $child) {
+            self::ensureWithinParentPlan($child->plan()->lockForUpdate()->firstOrFail(), $plan, $field);
+        }
+    }
+
+    private static function ensureEnvironmentDependents(Environment $environment, Plan $plan, string $field): void
+    {
+        foreach (DB::table('environment_user')->where('environment_id', $environment->id)->lockForUpdate()->get() as $membership) {
+            $userPlan = $membership->plan_id === null ? $plan : Plan::query()->whereKey($membership->plan_id)->lockForUpdate()->firstOrFail();
+            self::ensureWithinParentPlan($userPlan, $plan, $field);
+            self::ensureEnvironmentUserUsageWithinPlan($environment, $membership->user_id, $userPlan, $field);
         }
     }
 
@@ -327,15 +371,14 @@ class PlanAssignments
      */
     public static function lockTenantBudget(Tenant $tenant): void
     {
+        Quota::lock();
         Tenant::query()
             ->whereKey($tenant->id)
-            ->lockForUpdate()
-            ->first();
+            ->lockForUpdate()->first();
 
         TenantResourceReservation::query()
             ->where('tenant_id', $tenant->id)
-            ->lockForUpdate()
-            ->get();
+            ->lockForUpdate()->get();
     }
 
     /**
@@ -352,8 +395,8 @@ class PlanAssignments
         DB::table('tenant_resource_reservations')->where('plan_id', $plan->id)->lockForUpdate()->get();
 
         foreach (self::tenantsAssignedToPlan($plan) as $tenant) {
-            if ($tenant->parentTenant !== null) {
-                self::lockTenantBudget($tenant->parentTenant);
+            if (($parent = $tenant->parentTenant()->lockForUpdate()->first()) !== null) {
+                self::lockTenantBudget($parent);
             }
             self::lockTenantBudget($tenant);
         }
@@ -367,6 +410,7 @@ class PlanAssignments
      */
     public static function syncTenantReservations(Tenant $parentTenant, Tenant $childTenant, Plan $plan): void
     {
+        Quota::lock();
         TenantResourceReservation::query()
             ->where('tenant_id', $parentTenant->id)
             ->where('reserved_for_tenant_id', $childTenant->id)
@@ -394,11 +438,12 @@ class PlanAssignments
     private static function syncReservationsForAssignedTenants(Plan $plan): void
     {
         foreach (self::tenantsAssignedToPlan($plan) as $tenant) {
-            if ($plan->tenant_id === null || $tenant->parentTenant === null) {
+            $parent = $tenant->parentTenant()->lockForUpdate()->first();
+            if ($plan->tenant_id === null || $parent === null) {
                 continue;
             }
 
-            self::syncTenantReservations($tenant->parentTenant, $tenant, $plan);
+            self::syncTenantReservations($parent, $tenant, $plan);
         }
     }
 
@@ -407,6 +452,7 @@ class PlanAssignments
      */
     public static function removeTenantReservations(Tenant $parentTenant, Tenant $childTenant): void
     {
+        Quota::lock();
         TenantResourceReservation::query()
             ->where('tenant_id', $parentTenant->id)
             ->where('reserved_for_tenant_id', $childTenant->id)
@@ -425,7 +471,7 @@ class PlanAssignments
     {
         $budget = [];
 
-        foreach (self::planLimits($tenant->plan) as $identifier => $resourceLimit) {
+        foreach (self::planLimits($tenant->plan()->lockForUpdate()->first()) as $identifier => $resourceLimit) {
             $limit = $resourceLimit['limit'];
 
             if ($limit === -1) {
@@ -435,12 +481,14 @@ class PlanAssignments
 
             $used = self::usageForTenant($tenant, $resourceLimit['key'], $resourceLimit['type']);
 
-            $reserved = TenantResourceReservation::query()
+            $reservations = TenantResourceReservation::query()
                 ->where('tenant_id', $tenant->id)
                 ->where('resource_key', $resourceLimit['key'])
                 ->where('resource_type', $resourceLimit['type'])
                 ->when($ignoreChildTenant !== null, fn($query) => $query->where('reserved_for_tenant_id', '!=', $ignoreChildTenant->id))
-                ->sum('limit');
+                ->lockForUpdate()->pluck('limit');
+
+            $reserved = $reservations->contains(fn ($value) => (int) $value === -1) ? PHP_INT_MAX : (int) $reservations->sum();
 
             $budget[$identifier] = max(0, $limit - $used - (int)$reserved);
         }
@@ -484,27 +532,29 @@ class PlanAssignments
     private static function ensureAssignedPlanRemainsValid(Plan $plan): void
     {
         foreach (self::tenantsAssignedToPlan($plan) as $tenant) {
-            if ($plan->tenant_id !== null && $tenant->parentTenant !== null) {
-                self::ensureAssignableToChildTenant($plan, $tenant->parentTenant, $tenant, 'plan');
+            $parent = $tenant->parentTenant()->lockForUpdate()->first();
+            if ($plan->tenant_id !== null && $parent !== null) {
+                self::ensureAssignableToChildTenant($plan, $parent, $tenant, 'plan');
             }
 
-            self::ensureTenantUsageWithinPlan($tenant, $plan, 'plan');
+            self::ensureTenantContract($tenant, $plan, 'plan');
         }
 
-        foreach (Environment::query()->where('plan_id', $plan->id)->with('tenant')->get() as $environment) {
-            self::ensureWithinParentPlan($plan, $environment->tenant->plan, 'plan');
+        foreach (Environment::query()->where('plan_id', $plan->id)->lockForUpdate()->get() as $environment) {
+            self::ensureWithinParentPlan($plan, $environment->tenant()->lockForUpdate()->firstOrFail()->plan()->lockForUpdate()->first(), 'plan');
             self::ensureEnvironmentUsageWithinPlan($environment, $plan, 'plan');
+            self::ensureEnvironmentDependents($environment, $plan, 'plan');
         }
 
-        foreach (DB::table('tenant_user')->where('plan_id', $plan->id)->get() as $assignment) {
-            $tenant = Tenant::query()->findOrFail($assignment->tenant_id);
+        foreach (DB::table('tenant_user')->where('plan_id', $plan->id)->lockForUpdate()->get() as $assignment) {
+            $tenant = Tenant::query()->whereKey($assignment->tenant_id)->lockForUpdate()->firstOrFail();
             self::ensureAssignableToTenantUser($plan->id, $tenant, 'plan');
             self::ensureTenantUserUsageWithinPlan($tenant, (string)$assignment->user_id, $plan, 'plan');
         }
 
-        foreach (DB::table('environment_user')->where('plan_id', $plan->id)->get() as $assignment) {
-            $environment = Environment::query()->with('tenant')->findOrFail($assignment->environment_id);
-            self::ensureAssignableToEnvironmentUser($plan->id, $environment->tenant, $environment, 'plan');
+        foreach (DB::table('environment_user')->where('plan_id', $plan->id)->lockForUpdate()->get() as $assignment) {
+            $environment = Environment::query()->whereKey($assignment->environment_id)->lockForUpdate()->firstOrFail();
+            self::ensureAssignableToEnvironmentUser($plan->id, $environment->tenant()->lockForUpdate()->firstOrFail(), $environment, 'plan');
             self::ensureEnvironmentUserUsageWithinPlan($environment, (string)$assignment->user_id, $plan, 'plan');
         }
     }
@@ -518,8 +568,7 @@ class PlanAssignments
     {
         return Tenant::query()
             ->where('plan_id', $plan->id)
-            ->with('parentTenant')
-            ->get();
+            ->lockForUpdate()->get();
     }
 
     /**
@@ -530,8 +579,9 @@ class PlanAssignments
     private static function ensureTenantUsageWithinPlan(Tenant $tenant, Plan $plan, string $field): void
     {
         foreach (self::planLimits($plan) as $identifier => $resourceLimit) {
-            $used = self::usageForTenant($tenant, $resourceLimit['key'], $resourceLimit['type'])
-                + self::reservedByTenant($tenant, $resourceLimit['key'], $resourceLimit['type']);
+            $reserved = self::reservedByTenant($tenant, $resourceLimit['key'], $resourceLimit['type']);
+            $used = $reserved === PHP_INT_MAX ? PHP_INT_MAX
+                : self::usageForTenant($tenant, $resourceLimit['key'], $resourceLimit['type']) + $reserved;
 
             self::ensureLimitCoversUsage($resourceLimit['limit'], $used, $field);
         }
@@ -569,16 +619,18 @@ class PlanAssignments
     private static function ensureTenantUserUsageWithinPlan(Tenant $tenant, string $userId, Plan $plan, string $field): void
     {
         foreach (self::planLimits($plan) as $resourceLimit) {
-            if ($resourceLimit['type'] !== 'tenant') {
-                continue;
-            }
-
             self::ensureLimitCoversUsage(
                 $resourceLimit['limit'],
-                self::usageForTenant($tenant, $resourceLimit['key'], 'tenant', $userId),
+                self::usageForTenant($tenant, $resourceLimit['key'], $resourceLimit['type'], $userId),
                 $field,
             );
         }
+        $tenantKeys = DB::table('tenant_usage')->where('tenant_id', $tenant->id)->where('user_id', $userId)
+            ->lockForUpdate()->pluck('resource_key')->map(fn ($key) => 'tenant:'.$key);
+        $environmentKeys = DB::table('env_usage')->join('environments', 'environments.id', '=', 'env_usage.environment_id')
+            ->where('environments.tenant_id', $tenant->id)->where('env_usage.user_id', $userId)
+            ->lockForUpdate()->pluck('env_usage.resource_key')->map(fn ($key) => 'environment:'.$key);
+        self::ensureNoUsageOutsidePlan($plan, $tenantKeys->merge($environmentKeys)->unique()->all(), $field);
     }
 
     /**
@@ -599,6 +651,9 @@ class PlanAssignments
                 $field,
             );
         }
+        $keys = DB::table('env_usage')->where('environment_id', $environment->id)->where('user_id', $userId)
+            ->lockForUpdate()->pluck('resource_key')->map(fn ($key) => 'environment:'.$key)->unique()->all();
+        self::ensureNoUsageOutsidePlan($plan, $keys, $field);
     }
 
     /**
@@ -636,11 +691,12 @@ class PlanAssignments
 
     private static function reservedByTenant(Tenant $tenant, string $resourceKey, string $resourceType): int
     {
-        return (int)TenantResourceReservation::query()
+        $limits = TenantResourceReservation::query()
             ->where('tenant_id', $tenant->id)
             ->where('resource_key', $resourceKey)
             ->where('resource_type', $resourceType)
-            ->sum('limit');
+            ->lockForUpdate()->pluck('limit');
+        return $limits->contains(fn ($value) => (int) $value === -1) ? PHP_INT_MAX : (int) $limits->sum();
     }
 
     /**
@@ -648,10 +704,13 @@ class PlanAssignments
      *
      * @return array<string, array{key: string, type: string, limit: int}>
      */
-    private static function planLimits(Plan $plan): array
+    private static function planLimits(?Plan $plan): array
     {
+        if ($plan === null) {
+            return [];
+        }
         return $plan->resources()
-            ->get()
+            ->lockForUpdate()->get()
             ->mapWithKeys(fn($resource) => [
                 self::resourceIdentifier($resource->key, $resource->type) => [
                     'key' => $resource->key,
@@ -674,7 +733,7 @@ class PlanAssignments
     {
         $hasEnabledResource = $plan->resources()
             ->wherePivot('limit', '!=', 0)
-            ->exists();
+            ->lockForUpdate()->first() !== null;
 
         if (!$hasEnabledResource) {
             throw self::validationException($field, $message);
@@ -688,29 +747,12 @@ class PlanAssignments
 
     private static function usageForTenant(Tenant $tenant, string $resourceKey, string $resourceType, ?string $userId = null): int
     {
-        if ($resourceType === 'environment') {
-            return (int)DB::table('env_usage')
-                ->join('environments', 'env_usage.environment_id', '=', 'environments.id')
-                ->where('environments.tenant_id', $tenant->id)
-                ->where('env_usage.resource_key', $resourceKey)
-                ->when($userId !== null, fn($query) => $query->where('env_usage.user_id', $userId))
-                ->count();
-        }
-
-        return (int)DB::table('tenant_usage')
-            ->where('tenant_id', $tenant->id)
-            ->where('resource_key', $resourceKey)
-            ->when($userId !== null, fn($query) => $query->where('user_id', $userId))
-            ->count();
+        return Quota::tenantUsed($tenant->id, $resourceKey, $resourceType, $userId);
     }
 
     private static function usageForEnvironment(Environment $environment, string $resourceKey, ?string $userId = null): int
     {
-        return (int)DB::table('env_usage')
-            ->where('environment_id', $environment->id)
-            ->where('resource_key', $resourceKey)
-            ->when($userId !== null, fn($query) => $query->where('user_id', $userId))
-            ->count();
+        return Quota::environmentUsed($environment->id, $resourceKey, $userId);
     }
 
     /**
@@ -722,7 +764,7 @@ class PlanAssignments
             ->where('tenant_id', $tenant->id)
             ->select('resource_key')
             ->distinct()
-            ->pluck('resource_key')
+            ->lockForUpdate()->pluck('resource_key')
             ->map(fn(string $key) => self::resourceIdentifier($key, 'tenant'));
 
         $environmentUsage = DB::table('env_usage')
@@ -730,14 +772,14 @@ class PlanAssignments
             ->where('environments.tenant_id', $tenant->id)
             ->select('env_usage.resource_key')
             ->distinct()
-            ->pluck('resource_key')
+            ->lockForUpdate()->pluck('resource_key')
             ->map(fn(string $key) => self::resourceIdentifier($key, 'environment'));
 
         $reserved = TenantResourceReservation::query()
             ->where('tenant_id', $tenant->id)
             ->select('resource_key', 'resource_type')
             ->distinct()
-            ->get()
+            ->lockForUpdate()->get()
             ->map(fn(TenantResourceReservation $reservation) => self::resourceIdentifier($reservation->resource_key, $reservation->resource_type));
 
         return $tenantUsage
@@ -757,7 +799,7 @@ class PlanAssignments
             ->where('environment_id', $environment->id)
             ->select('resource_key')
             ->distinct()
-            ->pluck('resource_key')
+            ->lockForUpdate()->pluck('resource_key')
             ->map(fn(string $key) => self::resourceIdentifier($key, 'environment'))
             ->values()
             ->all();
@@ -765,7 +807,7 @@ class PlanAssignments
 
     private static function environmentParentPlan(Environment $environment): ?Plan
     {
-        return $environment->plan ?: $environment->tenant->plan;
+        return $environment->plan()->lockForUpdate()->first() ?: $environment->tenant()->lockForUpdate()->firstOrFail()->plan()->lockForUpdate()->first();
     }
 
     private static function validationException(string $field, string $message): ValidationException

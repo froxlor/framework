@@ -5,6 +5,8 @@ namespace Froxlor\Core\Http\Controllers\Web;
 use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Resources\Nodes\NodeResource;
+use Froxlor\Core\Services\Node\Setup\NodeSetupService;
+use Illuminate\Http\RedirectResponse;
 use Froxlor\UI\Support\UI;
 
 class NodeController extends Controller
@@ -31,5 +33,14 @@ class NodeController extends Controller
         return UI::render(NodeResource::class, 'edit', [
             'node' => $node
         ]);
+    }
+
+    public function setup(Node $node, NodeSetupService $setups): RedirectResponse
+    {
+        $setups->request($node, request()->user());
+
+        return redirect()
+            ->route('resources.nodes.show', ['node' => $node])
+            ->with('message', trans('froxlor-core::generic.node_setup_queued'));
     }
 }

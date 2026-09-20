@@ -6,6 +6,7 @@ use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Setting;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,6 +20,9 @@ class BootstrapService
             'name' => 'Froxlor',
             'description' => 'Froxlor Master Tenant'
         ]);
+        Audit::notice('tenant "' . $tenant->name . '" created', $tenant, context: [
+            'tenant_id' => $tenant->id,
+        ]);
 
         // create root user
         $user = User::query()->create([
@@ -26,6 +30,9 @@ class BootstrapService
             'last_name' => $lastName,
             'email' => $email,
             'password' => Hash::make($password),
+        ]);
+        Audit::notice('user "' . $user->email . '" created', $tenant, context: [
+            'user_id' => $user->id,
         ]);
 
         // 'Super-Admin' role for the users on this tenant
@@ -40,7 +47,7 @@ class BootstrapService
         $user->roles()->attach($superAdminRoleId);
 
         // mark application as initialized
-        Setting::add('core.initialized', true, type: 'boolean', properties: ['visible' => false]);
+        Setting::add('core.initialized', true, type: 'boolean', properties: ['visible' => false], source: 'froxlor/core');
 
         return $user;
     }

@@ -3,7 +3,6 @@
 namespace Froxlor\Core\Models;
 
 use Froxlor\Core\Services\Traits\CanDelegatePermissions;
-use Froxlor\Core\Support\Resource;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\Pivot;
@@ -12,15 +11,17 @@ use Illuminate\Database\Eloquent\Relations\Pivot;
  * @property string $id
  * @property string $environment_id
  * @property string $user_id
- * @property string $role_id
+ * @property string|null $role_id
  * @property string|null $plan_id
  * @property Environment $environment
  * @property User $user
- * @property Role $role
+ * @property Role|null $role
  * @property Plan|null $plan
  */
+#[\Illuminate\Database\Eloquent\Attributes\ObservedBy(\Froxlor\Core\Observers\EnvironmentUserObserver::class)]
 class EnvironmentUser extends Pivot
 {
+    use \Froxlor\Core\Services\Traits\SavesWithinQuotaTransaction;
     use HasUlids, CanDelegatePermissions;
 
     public $timestamps = true;
@@ -52,37 +53,7 @@ class EnvironmentUser extends Pivot
      */
     public function hasResourceAvailable(string $resource): bool
     {
-        /** @var Plan $plan */
-        $plan = $this->plan;
-        if (is_null($plan)) {
-            // use environment plan if no users-plan is set
-            $plan = $this->environment->plan;
-            if (is_null($plan)) {
-                // use tenant plan if no environment-plan is set
-                $plan = $this->environment->tenant->plan;
-            }
-        }
-        /** @var Resource $resource_to_check */
-        $resource_to_check = $plan->resources()
-            ->where('resources.key', $resource)
-            ->where('resources.type', 'environment')
-            ->first();
-        if (empty($resource_to_check)) {
-            // don't have this resource assigned to plan at all
-            return false;
-        }
-        $max = $resource_to_check->pivot->limit;
-        if (empty($max)) {
-            // not allowed (0 value)
-            return false;
-        } elseif ($max == -1) {
-            // unlimited
-            return true;
-        } else {
-            // limit set - check for already used resources
-            $used = Resource::getEnvironmentUsage($this->environment, $resource_to_check->model_type, $this->user);
-            return $used < $max;
-        }
+        return \Froxlor\Core\Support\Quota::environmentAvailable($this->environment, $resource, $this->user);
     }
 
     /**
@@ -94,8 +65,7 @@ class EnvironmentUser extends Pivot
     public function hasPermission(string|array $permission): bool
     {
         $possible_permissions = Permission::generatePermissionPath($permission);
-        return $this->role->permissions()
-            ->whereIn('key', $possible_permissions)
+        return $this->role()->whereHas('permissions', fn ($query) => $query->whereIn('key', $possible_permissions))
             ->exists();
     }
 }

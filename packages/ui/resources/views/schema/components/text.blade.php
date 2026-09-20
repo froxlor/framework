@@ -14,6 +14,7 @@ new class extends Component
 
 @php
     $value = data_get($data, $schema->key, $schema->default ?? null);
+    $value ??= $schema->default ?? null;
 
     if (is_array($value)) {
         $value = json_encode($value, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -10,6 +10,7 @@ class PlatformResolver
         'debian' => [
             'family' => 'debian',
             'versions' => [
+                '12' => 'bookworm',
                 '13' => 'trixie',
             ],
         ],

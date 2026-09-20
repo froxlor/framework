@@ -12,10 +12,13 @@ use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Plan;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Support\PlanAssignments;
+use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\AdministrationGuard;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 
 class TenantController extends Controller
 {
@@ -68,6 +71,10 @@ class TenantController extends Controller
         $eventData = $this->validatedEventData($request);
         // throw event that resource was created and append validated data
         event(new ResourceCreated($tenant, $eventData));
+        Audit::notice('tenant "' . $tenant->name . '" created', $parentTenant, context: [
+            'tenant_id' => $tenant->id,
+            'plan_id' => $tenant->plan_id,
+        ]);
 
         // return resource
         return Response::jsonResource($tenant->refresh());
@@ -80,7 +87,11 @@ class TenantController extends Controller
     {
         Gate::authorize('view', $tenant);
 
-        return Response::jsonResource($tenant->load('plan')->append('tenant_usage_list'));
+        return Response::jsonResource($tenant->load('plan')->append([
+            'tenant_usage_list',
+            'all_users_count',
+            'all_sub_tenants_count',
+        ]));
     }
 
     /**
@@ -94,12 +105,30 @@ class TenantController extends Controller
         $parentTenant = array_key_exists('parent_tenant_id', $tenantData)
             ? Tenant::query()->find($tenantData['parent_tenant_id'])
             : $tenant->parentTenant;
+
+        if (!$tenant->canHaveParent($parentTenant)) {
+            throw ValidationException::withMessages([
+                'parent_tenant_id' => 'A tenant cannot be assigned to itself or one of its descendants.',
+            ]);
+        }
+
         $plan = array_key_exists('plan_id', $tenantData)
             ? Plan::query()->findOrFail($tenantData['plan_id'])
             : $tenant->plan;
         $oldParentTenant = $tenant->parentTenant;
 
-        DB::transaction(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+        AdministrationGuard::run(function () use ($tenant, $tenantData, $oldParentTenant, $parentTenant, $plan): void {
+            \Froxlor\Core\Support\Quota::lock();
+            $tenant = Tenant::query()->whereKey($tenant->id)->lockForUpdate()->firstOrFail();
+            $oldParentTenant = $tenant->parentTenant()->lockForUpdate()->first();
+            $parentTenant = array_key_exists('parent_tenant_id', $tenantData)
+                ? Tenant::query()->whereKey($tenantData['parent_tenant_id'])->lockForUpdate()->first()
+                : $oldParentTenant;
+            $plan = Plan::query()->whereKey($tenantData['plan_id'] ?? $tenant->plan_id)->lockForUpdate()->firstOrFail();
+            if (!$tenant->canHaveParent($parentTenant)) {
+                throw ValidationException::withMessages(['parent_tenant_id' => 'Invalid tenant parent.']);
+            }
+            Gate::authorize('update', $tenant);
             if ($oldParentTenant !== null && ($parentTenant === null || $oldParentTenant->id !== $parentTenant->id)) {
                 PlanAssignments::lockTenantBudget($oldParentTenant);
             }
@@ -121,8 +150,13 @@ class TenantController extends Controller
 
         });
         event(new ResourceUpdated($tenant, $this->validatedEventData($request)));
+        $tenant->refresh();
+        Audit::info('tenant "' . $tenant->name . '" updated', $tenant->parentTenant, context: [
+            'tenant_id' => $tenant->id,
+            'plan_id' => $tenant->plan_id,
+        ]);
 
-        return Response::jsonResource($tenant->refresh());
+        return Response::jsonResource($tenant);
     }
 
     /**
@@ -132,8 +166,22 @@ class TenantController extends Controller
     {
         Gate::authorize('delete', $tenant);
 
-        $tenant->delete();
+        if ($tenant->subTenants()->exists()) {
+            throw ValidationException::withMessages([
+                'tenant' => 'A tenant with child tenants cannot be deleted.',
+            ]);
+        }
+
+        $parentTenant = $tenant->parentTenant;
+        AdministrationGuard::run(function () use ($tenant): void {
+            \Froxlor\Core\Support\Quota::lock();
+            Gate::authorize('delete', $tenant);
+            $tenant->delete();
+        });
         event(new ResourceDeleted($tenant, []));
+        Audit::info('tenant "' . $tenant->name . '" deleted', $parentTenant, context: [
+            'tenant_id' => $tenant->id,
+        ]);
 
         return response()->noContent();
     }

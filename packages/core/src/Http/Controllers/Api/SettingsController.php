@@ -3,7 +3,11 @@
 namespace Froxlor\Core\Http\Controllers\Api;
 
 use Froxlor\Core\Http\Controllers\Controller;
+use Froxlor\Core\Models\Environment;
+use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Setting;
+use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
@@ -47,9 +51,26 @@ class SettingsController extends Controller
 
             $this->validateIncomingValue($value, $setting, $fieldKey);
 
-            $setting->update([
+            $updated = $setting->update([
                 'value' => $value,
             ]);
+
+            if ($updated && $setting->wasChanged('value')) {
+                $settingable = $setting->settingable;
+                $tenant = match (true) {
+                    $settingable instanceof Tenant => $settingable,
+                    $settingable instanceof Environment => $settingable->tenant,
+                    $settingable instanceof Node => $settingable->tenant,
+                    default => null,
+                };
+                $environment = $settingable instanceof Environment ? $settingable : null;
+
+                Audit::info('setting "' . $setting->category . '.' . $setting->key . '" updated', $tenant, $environment, [
+                    'setting_id' => $setting->id,
+                    'settingable_type' => $setting->settingable_type,
+                    'settingable_id' => $setting->settingable_id,
+                ]);
+            }
         }
 
         return Response::jsonResource([

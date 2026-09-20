@@ -62,6 +62,66 @@ class TenantAuthorizationTest extends TestCase
         $this->assertTrue($rootTenant->isParentToTenant($grandchildTenant));
     }
 
+    public function test_tenant_tree_helpers_terminate_when_data_contains_a_cycle(): void
+    {
+        $rootTenant = Tenant::query()->root()->firstOrFail();
+        $childTenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $grandchildTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
+
+        DB::table('tenants')
+            ->where('id', $rootTenant->id)
+            ->update(['parent_tenant_id' => $grandchildTenant->id]);
+
+        try {
+            $descendantIds = $rootTenant->fresh()->descendantIds();
+
+            $this->assertCount(2, $descendantIds);
+            $this->assertSame([$childTenant->id, $grandchildTenant->id], $descendantIds);
+        } finally {
+            DB::table('tenants')
+                ->where('id', $rootTenant->id)
+                ->update(['parent_tenant_id' => null]);
+        }
+    }
+
+    public function test_tenant_cannot_be_reassigned_under_itself(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id, [
+                'parent_tenant_id' => $tenant->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['parent_tenant_id']);
+    }
+
+    public function test_tenant_cannot_be_reassigned_under_one_of_its_descendants(): void
+    {
+        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
+        $descendant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
+        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->putJson('/api/tenants/' . $tenant->id, [
+                'parent_tenant_id' => $descendant->id,
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['parent_tenant_id']);
+    }
+
+    public function test_tenant_with_children_cannot_be_deleted(): void
+    {
+        $tenant = Tenant::query()->root()->firstOrFail();
+        $user = User::query()->where('email', config('dev.email'))->firstOrFail();
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson('/api/tenants/' . $tenant->id)
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['tenant']);
+    }
+
     public function test_tenant_tree_scopes_filter_root_children_and_tree(): void
     {
         $rootTenant = Tenant::query()->root()->firstOrFail();

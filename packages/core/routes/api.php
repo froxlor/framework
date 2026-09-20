@@ -7,6 +7,8 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('audit-log', Api\AuditLogController::class)->only(['index']);
 
     Route::apiResource('nodes', Api\NodeController::class);
+    Route::get('nodes/{node}/setup', [Api\NodeSetupController::class, 'show'])->name('nodes.setup.show');
+    Route::post('nodes/{node}/setup', [Api\NodeSetupController::class, 'store'])->name('nodes.setup.store');
     Route::apiResource('users', Api\UserController::class);
     Route::apiResource('api-keys', Api\ApiKeyController::class)->only(['index', 'store', 'show', 'destroy']);
 
@@ -20,6 +22,8 @@ Route::middleware(['api', 'auth:sanctum'])->prefix('api')->name('api.')->group(f
     Route::apiResource('tenants', Api\TenantController::class);
     Route::apiResource('tenants.audit-log', Api\Tenant\AuditLogController::class)->only(['index']);
     Route::apiResource('tenants.nodes', Api\Tenant\NodeController::class);
+    Route::get('tenants/{tenant}/nodes/{node}/setup', [Api\NodeSetupController::class, 'tenantShow'])->name('tenants.nodes.setup.show');
+    Route::post('tenants/{tenant}/nodes/{node}/setup', [Api\NodeSetupController::class, 'tenantStore'])->name('tenants.nodes.setup.store');
     Route::apiResource('tenants.environments', Api\Tenant\EnvironmentController::class);
     Route::apiResource('tenants.environments.audit-log', Api\Tenant\Environment\AuditLogController::class)->only(['index']);
     Route::apiResource('tenants.environments.users', Api\Tenant\Environment\UserController::class);

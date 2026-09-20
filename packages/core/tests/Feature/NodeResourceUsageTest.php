@@ -13,12 +13,18 @@ use Froxlor\Core\Models\User;
 use RuntimeException;
 use Tests\Fakes\FakeNodeAdapter;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Tests\Fakes\BuildsResourceUsageFixtures;
+
+require_once dirname(__DIR__) . '/Fakes/BuildsResourceUsageFixtures.php';
 
 class NodeResourceUsageTest extends TestCase
 {
+    use DatabaseTransactions, BuildsResourceUsageFixtures;
     protected function setUp(): void
     {
         parent::setUp();
+        $this->buildResourceUsageFixtures();
 
         require_once dirname(__DIR__) . '/Fakes/FakeNodeAdapter.php';
 
@@ -29,10 +35,10 @@ class NodeResourceUsageTest extends TestCase
 
     public function test_tenant_owned_node_creates_and_removes_resource_usage(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $this->actingAs($user, 'sanctum');
 
@@ -56,8 +62,8 @@ class NodeResourceUsageTest extends TestCase
 
     public function test_tenant_owned_node_creation_respects_plan_resource_limit(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $resource = Resource::query()->where('key', Node::getResourceKey())->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $plan = Plan::query()->create([
@@ -75,22 +81,21 @@ class NodeResourceUsageTest extends TestCase
         $this->createTenantNode($tenant, 'Rejected Node');
     }
 
-    public function test_parent_tenant_user_creating_node_for_subtenant_counts_usage_on_both_tenants(): void
+    public function test_parent_tenant_user_creating_node_for_subtenant_charges_only_the_owner_with_parent_reservations(): void
     {
-        $parentTenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $subTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $parentTenant = $this->quotaTenant;
+        $subTenant = $this->quotaChild();
+        $user = $this->quotaActor;
 
         $parentTenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $subTenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
-        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $parentTenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $this->actingAs($user, 'sanctum');
 
         $node = $this->createTenantNode($subTenant, 'Forced Subtenant Node');
 
-        $this->assertDatabaseHas('tenant_usage', [
+        $this->assertDatabaseMissing('tenant_usage', [
             'tenant_id' => $parentTenant->id,
             'user_id' => $user->id,
             'resource_key' => Node::getResourceKey(),
@@ -106,9 +111,9 @@ class NodeResourceUsageTest extends TestCase
 
     public function test_node_with_assigned_environments_cannot_be_deleted_and_keeps_usage(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
-        $plan = Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
+        $plan = $this->quotaPlan;
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
         $tenant->update(['plan_id' => $plan->id]);
 
@@ -142,14 +147,14 @@ class NodeResourceUsageTest extends TestCase
 
     public function test_tenant_node_actions_write_audit_log_with_tenant_context(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $tenant->tenantUsages()->where('resource_key', Node::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $this->actingAs($user, 'sanctum');
 
-        $node = $this->createTenantNode($tenant, 'Audited Node');
+        $node = $this->createTenantNodeThroughApi($tenant, 'Audited Node');
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -158,7 +163,10 @@ class NodeResourceUsageTest extends TestCase
             'action' => 'node "' . $node->name . '" created',
         ]);
 
-        $node->update(['name' => 'Audited Node Updated']);
+        $this->putJson('/api/tenants/' . $tenant->id . '/nodes/' . $node->id, [
+            'name' => 'Audited Node Updated',
+        ])->assertOk();
+        $node->refresh();
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -168,7 +176,8 @@ class NodeResourceUsageTest extends TestCase
         ]);
 
         $nodeId = $node->id;
-        $node->delete();
+        $this->deleteJson('/api/tenants/' . $tenant->id . '/nodes/' . $node->id)
+            ->assertNoContent();
 
         $this->assertDatabaseHas('audit_logs', [
             'auditable_id' => $user->id,
@@ -195,5 +204,20 @@ class NodeResourceUsageTest extends TestCase
             'username' => 'root',
             'sudo' => true,
         ]);
+    }
+
+    private function createTenantNodeThroughApi(Tenant $tenant, string $name): Node
+    {
+        $nodeId = $this->postJson('/api/tenants/' . $tenant->id . '/nodes', [
+            'adapter' => FakeNodeAdapter::class,
+            'name' => $name,
+            'hostname' => str($name)->slug() . '.local',
+            'username' => 'root',
+            'sudo' => true,
+        ])
+            ->assertCreated()
+            ->json('data.id');
+
+        return Node::query()->findOrFail($nodeId);
     }
 }

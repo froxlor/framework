@@ -36,6 +36,7 @@ use Illuminate\Support\Facades\DB;
 #[ObservedBy(EnvironmentObserver::class)]
 class Environment extends Model
 {
+    use \Froxlor\Core\Services\Traits\SavesWithinQuotaTransaction;
     use HasUlids, IsResource, IsTenantResource, HasPermissions;
 
     protected $guarded = [];
@@ -47,7 +48,7 @@ class Environment extends Model
             'node_environments',
             'environment_id',
             'node_id'
-        )->withPivot(['unix_name', 'guid'])->using(NodeEnvironment::class);
+        )->withPivot(['unix_name', 'guid', 'jail_path', 'jail_manifest'])->using(NodeEnvironment::class);
     }
 
     public function tenant(): BelongsTo
@@ -89,12 +90,7 @@ class Environment extends Model
      */
     public function userHasResourceAvailable(User $user, string $resource): bool
     {
-        /** @var EnvironmentUser $pivot */
-        $pivot = $this->users()->where('user_id', $user->id)->first();
-        if (empty($pivot)) {
-            throw new UnknownEnvironmentUserException("Unknown environment users");
-        }
-        return $pivot->pivot->hasResourceAvailable($resource);
+        return \Froxlor\Core\Support\Quota::environmentAvailable($this, $resource, $user);
     }
 
     /**

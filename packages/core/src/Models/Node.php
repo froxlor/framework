@@ -33,6 +33,17 @@ use Illuminate\Support\Collection;
  * @property string|null $password
  * @property boolean $sudo
  * @property array $properties
+ * @property string|null $setup_status
+ * @property string|null $setup_request_id
+ * @property string|null $setup_requested_by
+ * @property array|null $setup_selection
+ * @property array|null $setup_services
+ * @property string|null $setup_fingerprint
+ * @property string|null $setup_run_id
+ * @property Carbon|null $setup_requested_at
+ * @property Carbon|null $setup_started_at
+ * @property Carbon|null $setup_finished_at
+ * @property string|null $setup_error
  * @property Carbon $created_at
  * @property Carbon $updated_at
  * @property Carbon $deleted_at
@@ -47,6 +58,7 @@ use Illuminate\Support\Collection;
 #[ObservedBy(NodeObserver::class)]
 class Node extends Model
 {
+    use \Froxlor\Core\Services\Traits\SavesWithinQuotaTransaction;
     use HasUlids, HasAdapter, HasPermissions, HasSettings, IsResource, IsTenantResource;
 
     protected $guarded = [];
@@ -60,6 +72,11 @@ class Node extends Model
         'sudo' => 'boolean',
         'password' => 'encrypted',
         'properties' => 'encrypted:array',
+        'setup_selection' => 'array',
+        'setup_services' => 'array',
+        'setup_requested_at' => 'datetime',
+        'setup_started_at' => 'datetime',
+        'setup_finished_at' => 'datetime',
     ];
 
     protected $appends = [

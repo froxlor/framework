@@ -1,11 +1,31 @@
 {{ '#!/bin/bash' }}
 # Exit on error
-set -e
+set -euo pipefail
 
-JAILUSER="{{ $userName }}"
-JAILBASE="{{ $userRootDir }}"
-HOMEDIR="{{ $userHomeDir }}"
-GUID="{{ $userGuid }}"
+JAILUSER={!! escapeshellarg($userName) !!}
+JAILBASE={!! escapeshellarg($userRootDir) !!}
+HOMEDIR={!! escapeshellarg($userHomeDir) !!}
+GUID={!! escapeshellarg((string) $userGuid) !!}
+
+# Keep stdout exclusively for the success marker, including on verbose Jailkit versions.
+exec 3>&1
+exec 1>&2
+
+# Refuse adoption of existing host identities, even with matching numeric IDs.
+! getent passwd "$JAILUSER" >/dev/null || exit 1
+! getent group "$JAILUSER" >/dev/null || exit 1
+
+# Every ancestor must be an actual root-owned directory, not a customer-controlled link.
+parent=$(dirname "$JAILBASE")
+while [ "$parent" != / ]; do
+  if [ -e "$parent" ] || [ -L "$parent" ]; then
+    [ -d "$parent" ] && [ ! -L "$parent" ] && [ "$(stat -c %u "$parent")" = 0 ] || exit 1
+    mode=$(stat -c %a "$parent")
+    (( (8#$mode & 8#022) == 0 )) || exit 1
+  fi
+    parent=$(dirname "$parent")
+done
+mkdir -p "$(dirname "$JAILBASE")"
 
 echo "Creating jail for user $JAILUSER at $JAILBASE"
 
@@ -34,9 +54,11 @@ elif getent passwd "$GUID" >/dev/null; then
 fi
 
 # Create base structure
-mkdir -p "$JAILBASE"
+mkdir "$JAILBASE"
 chown root:root "$JAILBASE"
 chmod 755 "$JAILBASE"
+printf %s {!! escapeshellarg($creationToken) !!} > "$JAILBASE/.froxlor-creation-token"
+chmod 600 "$JAILBASE/.froxlor-creation-token"
 
 if ! getent group "$JAILUSER" >/dev/null; then
     groupadd -g "$GUID" "$JAILUSER"
@@ -49,8 +71,9 @@ fi
 # Initialize jail with basic shells, editors, netutils and transfer tools.
 jk_init -j "$JAILBASE" basicshell jk_lsh editors netutils sftp scp rsync
 
-# Create user inside jail
-jk_jailuser -m -j "$JAILBASE" "$JAILUSER"
+# Create user inside jail. The account already has its home below the jail
+# (useradd -m above), so --move would try to copy the home onto itself.
+jk_jailuser -j "$JAILBASE" "$JAILUSER"
 
 # Mount a dedicated proc filesystem for the jail.
 if ! mountpoint -q "$JAILBASE/proc"; then
@@ -71,3 +94,5 @@ mkdir -p "$HOMEDIR/web"
 mkdir -p "$HOMEDIR/logs"
 chown -R "$JAILUSER:$JAILUSER" "$HOMEDIR/web"
 chown -R "$JAILUSER:$JAILUSER" "$HOMEDIR/logs"
+
+printf FROXLOR_JAIL_CREATED >&3

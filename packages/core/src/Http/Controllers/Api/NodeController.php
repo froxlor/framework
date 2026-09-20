@@ -12,6 +12,7 @@ use Froxlor\Core\Http\Requests\UpdateNodeRequest;
 use Froxlor\Core\Jobs\Node\ExploreNode;
 use Froxlor\Core\Models\Node;
 use Froxlor\Core\Models\Tenant;
+use Froxlor\Core\Support\Audit;
 use Froxlor\Core\Support\Response;
 use Illuminate\Support\Facades\Gate;
 
@@ -34,36 +35,41 @@ class NodeController extends Controller
      */
     public function store(StoreNodeRequest $request)
     {
-        Gate::authorize('create', Node::class);
+        return \Froxlor\Core\Support\Quota::transaction(function () use ($request) {
+            Gate::authorize('create', Node::class);
 
-        // get validated data only for ourselves
-        $nodeData = $request->validatedResource();
-        $inheritable = (bool)($nodeData['inheritable'] ?? false);
-        unset($nodeData['inheritable']);
-        $nodeData = $this->normalizeNodeProperties($nodeData);
+            // get validated data only for ourselves
+            $nodeData = $request->validatedResource();
+            $inheritable = (bool)($nodeData['inheritable'] ?? false);
+            unset($nodeData['inheritable']);
+            $nodeData = $this->normalizeNodeProperties($nodeData);
 
-        $tenant = null;
-        if (!empty($nodeData['tenant_id'])) {
-            $tenant = Tenant::query()->findOrFail($nodeData['tenant_id']);
-            Gate::authorize('view', $tenant);
-        }
+            $tenant = null;
+            if (!empty($nodeData['tenant_id'])) {
+                $tenant = Tenant::query()->findOrFail($nodeData['tenant_id']);
+                Gate::authorize('view', $tenant);
+            }
 
-        // create resource
-        $node = Node::query()->create($nodeData);
-        if ($tenant !== null) {
-            $node->tenants()->syncWithoutDetaching([
-                $tenant->id => ['inheritable' => $inheritable],
+            // create resource
+            $node = Node::query()->create($nodeData);
+            if ($tenant !== null) {
+                $node->tenants()->syncWithoutDetaching([
+                    $tenant->id => ['inheritable' => $inheritable],
+                ]);
+            }
+            // build up validated data for others
+            $eventData = $this->validatedEventData($request);
+            // throw event that resource was created and append validated data
+            event(new ResourceCreated($node, $eventData));
+            Audit::notice('node "' . $node->name . '" created', $node->tenant, context: [
+                'node_id' => $node->id,
             ]);
-        }
-        // build up validated data for others
-        $eventData = $this->validatedEventData($request);
-        // throw event that resource was created and append validated data
-        event(new ResourceCreated($node, $eventData));
-        // run explore-node job
-        dispatch(new ExploreNode($node, true));
+            // run explore-node job
+            dispatch((new ExploreNode($node, true, $request->user()->id))->afterCommit());
 
-        // return resource
-        return Response::jsonResource($node->refresh());
+            // return resource
+            return Response::jsonResource($node->refresh());
+        });
     }
 
     /**
@@ -72,6 +78,8 @@ class NodeController extends Controller
     public function show(Node $node)
     {
         Gate::authorize('view', $node);
+
+        $node->setAttribute('setup_status', $node->setup_status ?? 'not_started');
 
         return Response::jsonResource($node->load(['nodeInterfaces', 'environments.tenant']));
     }
@@ -85,6 +93,9 @@ class NodeController extends Controller
 
         $node->update($this->normalizeNodeProperties($request->validated(), $node));
         event(new ResourceUpdated($node, $this->validatedEventData($request)));
+        Audit::info('node "' . $node->name . '" updated', $node->tenant, context: [
+            'node_id' => $node->id,
+        ]);
 
         return Response::jsonResource($node);
     }
@@ -98,6 +109,9 @@ class NodeController extends Controller
 
         $node->delete();
         event(new ResourceDeleted($node, []));
+        Audit::info('node "' . $node->name . '" deleted', $node->tenant, context: [
+            'node_id' => $node->id,
+        ]);
 
         return response()->noContent();
     }

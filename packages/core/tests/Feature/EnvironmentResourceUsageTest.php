@@ -9,15 +9,26 @@ use Froxlor\Core\Models\Resource;
 use Froxlor\Core\Models\Tenant;
 use Froxlor\Core\Models\User;
 use Tests\TestCase;
+use Illuminate\Foundation\Testing\DatabaseTransactions;
+use Tests\Fakes\BuildsResourceUsageFixtures;
+
+require_once dirname(__DIR__) . '/Fakes/BuildsResourceUsageFixtures.php';
 
 class EnvironmentResourceUsageTest extends TestCase
 {
+    use DatabaseTransactions, BuildsResourceUsageFixtures;
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->buildResourceUsageFixtures();
+    }
+
     public function test_tenant_environment_creation_records_resource_usage(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $environmentId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [
@@ -36,8 +47,8 @@ class EnvironmentResourceUsageTest extends TestCase
 
     public function test_tenant_environment_creation_respects_plan_resource_limit(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $resource = Resource::query()->where('key', Environment::getResourceKey())->firstOrFail();
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
         $plan = Plan::query()->create([
@@ -56,19 +67,18 @@ class EnvironmentResourceUsageTest extends TestCase
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [
                 'name' => 'Rejected Environment ' . str()->ulid(),
             ])
-            ->assertStatus(500);
+            ->assertUnprocessable();
     }
 
-    public function test_parent_tenant_user_creating_environment_for_subtenant_counts_usage_on_both_tenants(): void
+    public function test_parent_tenant_user_creating_environment_for_subtenant_charges_only_the_owner_with_parent_reservations(): void
     {
-        $parentTenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $subTenant = Tenant::query()->where('name', 'Kunde #2')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $parentTenant = $this->quotaTenant;
+        $subTenant = $this->quotaChild();
+        $user = $this->quotaActor;
 
         $parentTenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
         $subTenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $parentTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
-        $subTenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $parentTenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $this->actingAs($user, 'sanctum');
 
@@ -77,7 +87,7 @@ class EnvironmentResourceUsageTest extends TestCase
             'name' => 'Subtenant Usage Test Environment ' . str()->ulid(),
         ]);
 
-        $this->assertDatabaseHas('tenant_usage', [
+        $this->assertDatabaseMissing('tenant_usage', [
             'tenant_id' => $parentTenant->id,
             'user_id' => $user->id,
             'resource_key' => Environment::getResourceKey(),
@@ -93,10 +103,10 @@ class EnvironmentResourceUsageTest extends TestCase
 
     public function test_tenant_environment_actions_write_audit_log_with_tenant_and_environment_context(): void
     {
-        $tenant = Tenant::query()->where('name', 'First customer')->firstOrFail();
-        $user = User::query()->where('email', 'dev2@froxlor.org')->firstOrFail();
+        $tenant = $this->quotaTenant;
+        $user = $this->quotaActor;
         $tenant->tenantUsages()->where('resource_key', Environment::getResourceKey())->delete();
-        $tenant->update(['plan_id' => Plan::query()->where('name', 'Test Tenant Unlimited')->firstOrFail()->id]);
+        $tenant->update(['plan_id' => $this->quotaPlan->id]);
 
         $environmentId = $this->actingAs($user, 'sanctum')
             ->postJson('/api/tenants/' . $tenant->id . '/environments', [

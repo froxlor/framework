@@ -2,9 +2,9 @@
 
 namespace Froxlor\Core\Http\Requests\Tenant\Environment;
 
-use Froxlor\Core\Http\Requests\UpdateUserRequest;
+use Froxlor\Core\Http\Requests\Tenant\UpdateTenantUserRequest;
 
-class UpdateEnvironmentUserRequest extends UpdateUserRequest
+class UpdateEnvironmentUserRequest extends UpdateTenantUserRequest
 {
     /**
      * Get the validation rules that apply to the request.
@@ -17,9 +17,13 @@ class UpdateEnvironmentUserRequest extends UpdateUserRequest
     public function rules(): array
     {
         return array_merge(parent::rules(), [
-            'tenant_role' => ['sometimes', 'string', 'ulid', 'exists:roles,id'],
+            'role' => ['missing'],
+            'role_id' => ['missing'],
+            'plan' => ['missing'],
+            'plan_id' => ['missing'],
+            'tenant_role' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:roles,id'],
             'tenant_plan' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:plans,id'],
-            'environment_role' => ['sometimes', 'string', 'ulid', 'exists:roles,id'],
+            'environment_role' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:roles,id'],
             'environment_plan' => ['sometimes', 'nullable', 'string', 'ulid', 'exists:plans,id'],
         ]);
     }

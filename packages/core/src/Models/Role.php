@@ -27,6 +27,7 @@ use Illuminate\Support\Collection;
  */
 class Role extends Model
 {
+    use \Froxlor\Core\Services\Traits\TracksTenantQuota;
     use HasUlids, IsResource, IsTenantResource, HasPermissions;
 
     protected $guarded = [];

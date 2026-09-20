@@ -36,7 +36,7 @@ class PackagesSyncPreMigrationTest extends TestCase
         // Whatever a given test left mid-way through, always finish in a fully configured,
         // fully migrated state — other test files also call completeCompletion() on this same
         // real package and don't expect its migration to be pending, regardless of run order.
-        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string');
+        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string', source: self::TEST_PACKAGE);
         Artisan::call('migrate', ['--force' => true]);
         app(PackageService::class)->findProvider(self::TEST_PACKAGE)?->completeCompletion();
 
@@ -61,7 +61,7 @@ class PackagesSyncPreMigrationTest extends TestCase
         Artisan::call('froxlor:packages:sync', ['--updated' => [self::TEST_PACKAGE]]);
         $this->assertFalse(Schema::hasColumn('example_visits', 'style'));
 
-        Setting::set('example.greeting_style', 'casual', 'string');
+        Setting::set('example.greeting_style', 'casual', 'string', source: self::TEST_PACKAGE);
         SettingModel::query()->where('category', 'example')->where('key', 'last_updated_at')->delete();
 
         app(PackageService::class)->findProvider(self::TEST_PACKAGE)->completeCompletion();
@@ -74,7 +74,7 @@ class PackagesSyncPreMigrationTest extends TestCase
 
     public function test_sync_runs_migrations_immediately_when_the_setting_is_already_set(): void
     {
-        Setting::set('example.greeting_style', 'formal', 'string');
+        Setting::set('example.greeting_style', 'formal', 'string', source: self::TEST_PACKAGE);
 
         Artisan::call('froxlor:packages:sync', ['--updated' => [self::TEST_PACKAGE]]);
 

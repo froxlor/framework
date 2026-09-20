@@ -38,10 +38,10 @@ class Audit
         }
 
         self::log(
-            $args[0],
-            $args[1] ?? null,
-            $args[2] ?? null,
-            $args[3] ?? null,
+            $args[0] ?? $args['audit_content'],
+            $args[1] ?? $args['tenant'] ?? null,
+            $args[2] ?? $args['environment'] ?? null,
+            $args[3] ?? $args['context'] ?? null,
             self::LEVELS[$method]
         );
     }

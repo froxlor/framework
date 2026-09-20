@@ -4,9 +4,11 @@ namespace Froxlor\Core\Services\Traits;
 
 use Exception;
 use Froxlor\Core\Models\Setting as SettingModel;
+use Froxlor\Core\Support\ComposerPackage;
 use Froxlor\Core\Support\Setting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\JoinClause;
+use RuntimeException;
 
 trait HasSettings
 {
@@ -82,7 +84,7 @@ trait HasSettings
      */
     public function addSetting(string $settings_path, mixed $value, mixed $default = null, string $type = 'string', array $properties = []): void
     {
-        Setting::add($settings_path, $value, $default, $type, $properties, self::class, $this->id);
+        Setting::add($settings_path, $value, $default, $type, $properties, self::class, $this->id, self::settingPackage());
     }
 
     /**
@@ -95,7 +97,7 @@ trait HasSettings
      */
     public function setSetting(string $settings_path, mixed $value): mixed
     {
-        return Setting::setValueForModel($this, $settings_path, $value);
+        return Setting::setValueForModel($this, $settings_path, $value, source: self::settingPackage());
     }
 
     /**
@@ -111,7 +113,7 @@ trait HasSettings
      */
     public static function addTypeSetting(string $settings_path, mixed $value, mixed $default = null, string $type = 'string', array $properties = []): void
     {
-        Setting::add($settings_path, $value, $default, $type, $properties, self::class);
+        Setting::add($settings_path, $value, $default, $type, $properties, self::class, source: self::settingPackage());
     }
 
     /**
@@ -124,7 +126,7 @@ trait HasSettings
      */
     public static function setTypeSetting(string $settings_path, mixed $value): void
     {
-        Setting::setValueForType(self::class, $settings_path, $value);
+        Setting::setValueForType(self::class, $settings_path, $value, source: self::settingPackage());
     }
 
     /**
@@ -136,5 +138,11 @@ trait HasSettings
     public static function getTypeSetting(string $settings_path, mixed $default = null): mixed
     {
         return Setting::getValueForType(self::class, $settings_path, $default);
+    }
+
+    private static function settingPackage(): string
+    {
+        return ComposerPackage::forClass(self::class)
+            ?? throw new RuntimeException('Unable to resolve the composer package for ' . self::class);
     }
 }

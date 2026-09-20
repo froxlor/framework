@@ -3,7 +3,9 @@
 namespace Froxlor\Core\Http\Controllers\Web;
 
 use Froxlor\Core\Http\Controllers\Controller;
+use Froxlor\Core\Models\User;
 use Froxlor\Core\Resources\ApiKeys\ApiKeyResource;
+use Froxlor\Core\Support\Audit;
 use Froxlor\UI\Support\UI;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -36,7 +38,18 @@ class ApiKeyController extends Controller
 
     public function destroy(PersonalAccessToken $apiKey): RedirectResponse
     {
+        $apiKey->loadMissing('tokenable');
+        $user = $apiKey->tokenable instanceof User ? $apiKey->tokenable : null;
+        $tenant = $user?->tenants()->first();
+        $apiKeyId = $apiKey->id;
+        $apiKeyName = $apiKey->name;
+
         $apiKey->delete();
+
+        Audit::info('api key "' . $apiKeyName . '" deleted', $tenant, context: [
+            'api_key_id' => $apiKeyId,
+            'user_id' => $user?->id,
+        ]);
 
         return redirect()->route('auth.api-keys.index');
     }
@@ -50,9 +63,21 @@ class ApiKeyController extends Controller
             ->all();
 
         if ($selected !== []) {
-            PersonalAccessToken::query()
+            $tokens = PersonalAccessToken::query()
+                ->with('tokenable')
                 ->whereIn('id', $selected)
+                ->get();
+
+            PersonalAccessToken::query()
+                ->whereIn('id', $tokens->modelKeys())
                 ->delete();
+
+            if ($tokens->isNotEmpty()) {
+                Audit::info('api keys deleted', context: [
+                    'api_key_ids' => $tokens->modelKeys(),
+                    'count' => $tokens->count(),
+                ]);
+            }
         }
 
         return redirect()->route('auth.api-keys.index');

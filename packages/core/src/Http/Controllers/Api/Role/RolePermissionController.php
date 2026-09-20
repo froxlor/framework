@@ -6,6 +6,7 @@ use Froxlor\Core\Http\Controllers\Controller;
 use Froxlor\Core\Models\Permission;
 use Froxlor\Core\Models\Role;
 use Froxlor\Core\Support\Audit;
+use Froxlor\Core\Support\AdministrationGuard;
 use Froxlor\Core\Support\RoleAssignments;
 use Froxlor\Core\Support\Response;
 use Illuminate\Http\Request;
@@ -64,13 +65,15 @@ class RolePermissionController extends Controller
 
         $permission = Permission::findOrFail($data['permission_id']);
 
-        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
+        AdministrationGuard::run(function () use ($request, $role, $permission, $data) {
+            Gate::authorize('roleCreate', [Permission::class, $role]);
+            abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
+            $role->permissions()->syncWithoutDetaching([
+                $permission->id => ['inheritable' => $data['inheritable'] ?? false],
+            ]);
+        });
 
-        $role->permissions()->syncWithoutDetaching([
-            $permission->id => ['inheritable' => $data['inheritable'] ?? false],
-        ]);
-
-        Audit::info('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $role->tenant, context: [
+        Audit::notice('permission "' . $permission->key . '" assigned to role "' . $role->name . '"', $role->tenant, context: [
             'role_id' => $role->id,
             'permission_id' => $permission->id,
             'permission_key' => $permission->key,
@@ -87,15 +90,16 @@ class RolePermissionController extends Controller
     {
         Gate::authorize('roleDelete', [$permission, $role]);
 
-        abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
-
-        if (!$role->permissions()->where('permissions.id', $permission->id)->exists()) {
-            throw ValidationException::withMessages([
-                'permission_id' => 'The selected permission is not assigned to this role.',
-            ]);
-        }
-
-        $role->permissions()->detach($permission);
+        AdministrationGuard::run(function () use ($request, $role, $permission) {
+            Gate::authorize('roleDelete', [$permission, $role]);
+            abort_unless(RoleAssignments::canDelegate($request->user(), $permission->key), 403);
+            if (!$role->permissions()->where('permissions.id', $permission->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'permission_id' => 'The selected permission is not assigned to this role.',
+                ]);
+            }
+            $role->permissions()->detach($permission);
+        });
 
         Audit::info('permission "' . $permission->key . '" removed from role "' . $role->name . '"', $role->tenant, context: [
             'role_id' => $role->id,

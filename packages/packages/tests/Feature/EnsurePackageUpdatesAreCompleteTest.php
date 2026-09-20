@@ -17,7 +17,7 @@ class EnsurePackageUpdatesAreCompleteTest extends TestCase
         // example's add_style_to_example_visits_table migration needs this setting present (see
         // FroxlorExampleServiceProvider), which is unrelated to what these tests exercise, so
         // make sure it's satisfied regardless of test order.
-        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string');
+        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string', source: self::TEST_PACKAGE);
 
         app(PackageService::class)->findProvider(self::TEST_PACKAGE)?->completeCompletion();
 
@@ -59,7 +59,7 @@ class EnsurePackageUpdatesAreCompleteTest extends TestCase
 
         // completeCompletion() below also runs any migrations that were held back — froxlor/
         // example's add_style_to_example_visits_table migration needs this setting present.
-        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string');
+        Setting::set('example.greeting_style', Setting::get('example.greeting_style', 'casual'), 'string', source: self::TEST_PACKAGE);
 
         $provider->completeCompletion();
 
