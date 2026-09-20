@@ -110,6 +110,45 @@ class RoleAssignments
     }
 
     /**
+     * Ensure the given role is not currently assigned to the user in the active scope.
+     *
+     * Permission changes on a user's own role can immediately remove the permission
+     * required to recover from the change, so role-permission mutations must reject
+     * those self-referential updates before touching the pivot table.
+     *
+     * @throws ValidationException
+     */
+    public static function ensureNotAssignedToUser(
+        Role $role,
+        User $user,
+        ?Tenant $tenant = null,
+        ?Environment $environment = null,
+    ): void {
+        $assigned = match (true) {
+            $environment !== null => DB::table('environment_user')
+                ->where('environment_id', $environment->id)
+                ->where('user_id', $user->id)
+                ->where('role_id', $role->id)
+                ->exists(),
+            $tenant !== null => DB::table('tenant_user')
+                ->where('tenant_id', $tenant->id)
+                ->where('user_id', $user->id)
+                ->where('role_id', $role->id)
+                ->exists(),
+            default => DB::table('role_user')
+                ->where('user_id', $user->id)
+                ->where('role_id', $role->id)
+                ->exists(),
+        };
+
+        if ($assigned) {
+            throw ValidationException::withMessages([
+                'role' => 'You cannot change permissions on a role assigned to yourself.',
+            ]);
+        }
+    }
+
+    /**
      * Ensure the selected role is global or owned by the target tenant.
      *
      * Global roles are available in tenant/environment scopes. Tenant-owned roles are only

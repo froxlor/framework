@@ -39,7 +39,7 @@ class RoleResource extends Resource
             ->fetch(route('api.tenants.roles.show', ['tenant' => $tenant, 'role' => $role]))
             ->push(route('api.tenants.roles.update', ['tenant' => $tenant, 'role' => $role]), 'PUT')
             ->intendedRoute('tenants.roles.index', ['tenant' => $tenant])
-            ->components(ShowRole::columns($role))
+            ->components(ShowRole::schema($role, $tenant))
             ->actions($this->showActions($tenant, $role));
     }
 

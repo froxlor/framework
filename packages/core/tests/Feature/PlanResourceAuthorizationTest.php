@@ -136,6 +136,7 @@ class PlanResourceAuthorizationTest extends TestCase
         $plan->resources()->attach($resource, ['limit' => 2]);
         Tenant::query()->create([
             'plan_id' => $plan->id,
+            'parent_tenant_id' => Tenant::query()->root()->firstOrFail()->id,
             'name' => 'Assigned Global Mutable Tenant ' . str()->ulid(),
         ]);
 
@@ -166,6 +167,7 @@ class PlanResourceAuthorizationTest extends TestCase
         $plan->resources()->attach($resource, ['limit' => 2]);
         $tenant = Tenant::query()->create([
             'plan_id' => $plan->id,
+            'parent_tenant_id' => Tenant::query()->root()->firstOrFail()->id,
             'name' => 'Assigned Global Usage Tenant ' . str()->ulid(),
         ]);
 
